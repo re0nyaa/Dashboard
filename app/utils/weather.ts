@@ -5,7 +5,7 @@ export type WeatherCardForecastItem = {
     weekday: string
     minTemp: number
     maxTemp: number
-    icon: WeatherIconKey
+    iconCode: string
 }
 
 export type WeatherCardData = {
@@ -16,6 +16,7 @@ export type WeatherCardData = {
     minTemp: number
     maxTemp: number
     forecast: WeatherCardForecastItem[]
+    iconCode: string
 }
 
 export async function fetchKMAWeather(): Promise<WeatherCardData | null> {
