@@ -548,7 +548,7 @@ export function MusicPlayer() {
         return (
             <div className="w-[860px] h-[440px] bg-[#4b4b4b] rounded-[30px] flex items-center justify-center">
                 {recentTrack ? (
-                    <div className="w-[820px] h-[400px] rounded-[26px] overflow-hidden relative">
+                    <div className="w-[860px] h-[440px] rounded-[26px] overflow-hidden relative">
                         {recentTrack.coverUrl ? (
                             <div
                                 className="absolute inset-0 bg-cover bg-center"
@@ -576,10 +576,10 @@ export function MusicPlayer() {
                         <button
                             type="button"
                             onClick={() => void handlePlayRecent()}
-                            className="absolute left-1/2 top-1/2 -translate-x-1/2 bg-[#30D866] -translate-y-1/2 w-[74px] h-[74px] rounded-full text-white"
+                            className="absolute right-[10px] bottom-[10px] -translate-x-1/2 bg-[#30D866] -translate-y-1/2 w-[60px] h-[60px] rounded-full text-white"
                             aria-label="Play recent"
                         >
-                            <FaPlay className="w-[36px] h-[36px] mx-auto" />
+                            <FaPlay className="w-[30px] h-[30px] mx-auto text-black" />
                         </button>
                     </div>
                 ) : (
@@ -848,6 +848,7 @@ export function MusicPlayer() {
                                         setIsSeeking(false)
                                         void handleSeekCommit(pos)
                                     } else {
+                                        // Tap-to-seek (only if we didn't do a vertical scroll gesture)
                                         if (
                                             seekStartXRef.current !== null &&
                                             seekGestureLockRef.current !==
@@ -976,7 +977,7 @@ export function MusicPlayer() {
                 </div>
 
                 <div
-                    className="absolute left-0 top-[410px] w-[860px] h-[400px] rounded-[45px]"
+                    className="absolute left-0 top-[375px] w-[860px] h-[400px] rounded-[45px]"
                     style={{ backgroundColor: playlistBgColor }}
                 >
                     <div className="absolute left-[50px] top-[22px] h-[40px] flex items-center text-black text-[32px] font-bold">
