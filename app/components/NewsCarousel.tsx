@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { fetchYNANews, type NewsItem } from "../utils/rss"
+import { fetchNews, type NewsItem } from "../utils/rss"
 import { AnimatePresence, motion } from "framer-motion"
 import { toDataURL } from "qrcode"
 
@@ -23,7 +23,7 @@ export function NewsCarousel() {
 
     const loadNews = async () => {
         setIsLoading(true)
-        const items = await fetchYNANews(MAX_ITEMS)
+        const items = await fetchNews(MAX_ITEMS)
         const trimmed = items.slice(0, MAX_ITEMS)
         setNews(trimmed)
         setCurrentIndex(0)

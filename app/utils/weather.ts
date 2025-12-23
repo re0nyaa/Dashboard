@@ -1,5 +1,3 @@
-export type WeatherIconKey = "sun" | "partly" | "cloud" | "rain" | "snow"
-
 export type WeatherCardForecastItem = {
     date: string
     weekday: string
@@ -19,7 +17,7 @@ export type WeatherCardData = {
     iconCode: string
 }
 
-export async function fetchKMAWeather(): Promise<WeatherCardData | null> {
+export async function fetchWeather(): Promise<WeatherCardData | null> {
     try {
         const response = await fetch("/api/weather")
         if (!response.ok) return null
@@ -27,7 +25,7 @@ export async function fetchKMAWeather(): Promise<WeatherCardData | null> {
         if (!data || typeof data !== "object") return null
         return data
     } catch (error) {
-        console.error("Error fetching KMA weather:", error)
+        console.error("Error fetching weather:", error)
         return null
     }
 }

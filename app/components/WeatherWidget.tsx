@@ -1,9 +1,5 @@
 import { useEffect, useState } from "react"
-import {
-    fetchKMAWeather,
-    type WeatherCardData,
-    type WeatherIconKey,
-} from "../utils/weather"
+import { fetchWeather, type WeatherCardData } from "../utils/weather"
 
 function LargeWeatherIcon({ iconCode }: { iconCode?: string }) {
     if (iconCode) {
@@ -36,7 +32,7 @@ export function WeatherWidget() {
         let cancelled = false
 
         const load = async () => {
-            const next = await fetchKMAWeather()
+            const next = await fetchWeather()
             if (cancelled) return
             setData(next)
         }

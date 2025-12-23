@@ -6,13 +6,13 @@ export interface NewsItem {
     imageUrl?: string
 }
 
-export async function fetchYNANews(limit: number = 25): Promise<NewsItem[]> {
+export async function fetchNews(limit: number = 25): Promise<NewsItem[]> {
     try {
         const response = await fetch(`/api/news?limit=${limit}`)
         const items = (await response.json()) as NewsItem[]
         return Array.isArray(items) ? items : []
     } catch (error) {
-        console.error("Error fetching YNA news:", error)
+        console.error("Error fetching news:", error)
         return []
     }
 }
