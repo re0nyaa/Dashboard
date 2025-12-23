@@ -56,20 +56,22 @@ export function WeatherWidget() {
     const feelsLike = data?.feelsLike ?? temperature
 
     const forecast = (data?.forecast ?? []).slice(0, 3)
-    const mainIcon: WeatherIconKey = condition.includes("눈")
-        ? "snow"
-        : condition.includes("비")
-        ? "rain"
-        : condition.includes("맑")
-        ? "sun"
-        : condition.includes("구름")
-        ? "partly"
-        : "cloud"
+    const gradientMap: Record<string, string> = {
+        맑음: "from-[#538FFF] to-[#C7DBFF]",
+        흐림: "from-[#8A94A6] to-[#D1D6DE]",
+        비: "from-[#4A6FA5] to-[#AFC4DE]",
+        눈: "from-[#D9D9D9] to-[#B7D6E3]",
+        뇌우: "from-[#3B3F58] to-[#8A90B2]",
+        안개: "from-[#7FAFD1] to-[#D6E4F0]",
+    }
+
+    const bgGradient = gradientMap[condition] ?? "from-sky-400 to-blue-100"
 
     return (
         <div className="w-[860px] h-[440px] rounded-[60px] overflow-hidden relative">
-            <div className="absolute inset-0 bg-gradient-to-br from-sky-400 to-blue-100" />
-            <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-white/0" />
+            <div
+                className={`absolute inset-0 bg-gradient-to-br ${bgGradient}`}
+            />
 
             <div className="relative h-full w-full px-[56px] py-[44px] flex">
                 <div className="w-[340px] flex flex-col justify-center relative">

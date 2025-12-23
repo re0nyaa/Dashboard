@@ -18,8 +18,20 @@ function toCondition(main: string): string {
         case "Rain":
         case "Drizzle":
             return "비"
+        case "Thunderstorm":
+            return "뇌우"
         case "Snow":
             return "눈"
+        case "Mist":
+        case "Smoke":
+        case "Haze":
+        case "Dust":
+        case "Fog":
+        case "Sand":
+        case "Ash":
+        case "Squall":
+        case "Tornado":
+            return "안개"
         default:
             return main
     }
