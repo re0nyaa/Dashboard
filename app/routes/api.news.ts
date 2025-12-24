@@ -33,9 +33,9 @@ export async function loader({ request }: { request: Request }) {
 
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 8000)
-
+    const uri = process.env.NEWS_RSS_URI ?? "https://www.yna.co.kr/rss/news.xml"
     try {
-        const response = await fetch("https://www.yna.co.kr/rss/news.xml", {
+        const response = await fetch(uri, {
             signal: controller.signal,
             headers: {
                 accept: "application/rss+xml, application/xml;q=0.9, text/xml;q=0.8, */*;q=0.1",
@@ -100,7 +100,7 @@ export async function loader({ request }: { request: Request }) {
             },
         })
     } catch (error) {
-        console.error("Error fetching YNA news (server):", error)
+        console.error("Error fetching news (server):", error)
         return new Response(JSON.stringify([] satisfies NewsItem[]), {
             status: 200,
             headers: {

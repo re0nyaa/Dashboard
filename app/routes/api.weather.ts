@@ -1,8 +1,4 @@
-import type {
-    WeatherCardData,
-    WeatherCardForecastItem,
-    WeatherIconKey,
-} from "../utils/weather"
+import type { WeatherCardData, WeatherCardForecastItem } from "../utils/weather"
 
 const OPENWEATHER_BASE = "https://api.openweathermap.org/data/2.5"
 
@@ -53,9 +49,8 @@ export async function loader() {
         return new Response("Missing OPENWEATHER_API_KEY", { status: 500 })
     }
 
-    // 서울 좌표
-    const lat = 37.5665
-    const lon = 126.978
+    const lat = process.env.LOCATION_LAT // 위도
+    const lon = process.env.LOCATION_LON // 경도
 
     // 현재 날씨
     const currentRes = await fetch(

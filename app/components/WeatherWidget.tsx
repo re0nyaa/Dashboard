@@ -45,10 +45,10 @@ export function WeatherWidget() {
         }
     }, [])
 
-    const temperature = data?.temperature ?? 6
-    const condition = data?.condition ?? "흐림"
-    const minTemp = data?.minTemp ?? -4
-    const maxTemp = data?.maxTemp ?? 8
+    const temperature = data?.temperature ?? 0
+    const condition = data?.condition ?? "정보 없음"
+    const minTemp = data?.minTemp ?? temperature
+    const maxTemp = data?.maxTemp ?? temperature
     const feelsLike = data?.feelsLike ?? temperature
 
     const forecast = (data?.forecast ?? []).slice(0, 3)
