@@ -954,7 +954,7 @@ export function MusicPlayer() {
                             <div className="relative">
                                 <FaRepeat className="w-[40px] h-[40px]" />
                                 {repeatMode === "track" && (
-                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] font-bold text-black bg-white rounded-full w-4 h-4 flex items-center justify-center">
+                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[14px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
                                         1
                                     </div>
                                 )}
@@ -968,7 +968,7 @@ export function MusicPlayer() {
                                 logoutSpotify()
                                 setAccessToken(null)
                             }}
-                            className="absolute right-[50px] top-[30px] text-white text-[12px] font-bold opacity-70"
+                            className="absolute top-[30px] right-[50px] text-white text-[12px] font-bold opacity-70"
                             aria-label="Logout"
                         >
                             로그아웃
