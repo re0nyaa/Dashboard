@@ -3,6 +3,8 @@ export type ScheduleItem = {
     start: string // ISO
     end?: string // ISO
     allDay?: boolean
+    sourceId?: string
+    color?: string
 }
 
 export async function fetchSchedule(options?: {
@@ -28,7 +30,9 @@ export async function fetchSchedule(options?: {
             return (
                 typeof anyX.title === "string" &&
                 typeof anyX.start === "string" &&
-                (anyX.end == null || typeof anyX.end === "string")
+                (anyX.end == null || typeof anyX.end === "string") &&
+                (anyX.sourceId == null || typeof anyX.sourceId === "string") &&
+                (anyX.color == null || typeof anyX.color === "string")
             )
         })
     } catch (error) {

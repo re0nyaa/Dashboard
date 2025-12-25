@@ -2,7 +2,75 @@ import type { WeatherCardData, WeatherCardForecastItem } from "../utils/weather"
 
 const OPENWEATHER_BASE = "https://api.openweathermap.org/data/2.5"
 const OPENWEATHER_GEO_BASE = "https://api.openweathermap.org/geo/1.0"
-const NOMINATIM_BASE = "https://nominatim.openstreetmap.org"
+
+const WEATHER_CACHE_TTL_MS = 60 * 1000
+const LOCATION_CACHE_TTL_MS = 24 * 60 * 60 * 1000
+
+const weatherCache = new Map<
+    string,
+    { expiresAt: number; payload: WeatherCardData }
+>()
+
+const locationCache = new Map<string, { expiresAt: number; location: string }>()
+
+function cacheKeyForLatLon(lat: number, lon: number) {
+    return `${lat.toFixed(3)},${lon.toFixed(3)}`
+}
+
+async function fetchWithTimeout(
+    url: string,
+    init: RequestInit | undefined,
+    timeoutMs: number
+): Promise<Response> {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+    try {
+        return await fetch(url, { ...init, signal: controller.signal })
+    } finally {
+        clearTimeout(timeoutId)
+    }
+}
+
+function delay(ms: number) {
+    return new Promise<void>((resolve) => setTimeout(resolve, ms))
+}
+
+async function resolveLocationFast(
+    lat: number,
+    lon: number,
+    apiKey: string
+): Promise<string | undefined> {
+    const key = cacheKeyForLatLon(lat, lon)
+    const cached = locationCache.get(key)
+    if (cached && cached.expiresAt > Date.now()) return cached.location
+
+    try {
+        const owReverseRes = await fetchWithTimeout(
+            `${OPENWEATHER_GEO_BASE}/reverse?lat=${lat}&lon=${lon}&limit=1&appid=${apiKey}`,
+            undefined,
+            900
+        )
+        if (owReverseRes.ok) {
+            const owJson =
+                (await owReverseRes.json()) as OpenWeatherReverseGeoItem[]
+            if (Array.isArray(owJson) && owJson.length > 0) {
+                const loc = formatLocationFromOpenWeatherGeo(owJson[0])
+                if (loc) {
+                    locationCache.set(key, {
+                        expiresAt: Date.now() + LOCATION_CACHE_TTL_MS,
+                        location: loc,
+                    })
+                    return loc
+                }
+            }
+        }
+    } catch {
+        // ignore
+    }
+
+    return undefined
+}
 
 type OpenWeatherReverseGeoItem = {
     name?: string
@@ -20,44 +88,6 @@ function formatLocationFromOpenWeatherGeo(
     const state = (item.state ?? "").trim()
     if (state && state !== place) return `${state} ${place}`
     return place
-}
-
-type NominatimReverseResponse = {
-    display_name?: string
-    address?: {
-        state?: string
-        province?: string
-        region?: string
-        city?: string
-        county?: string
-        borough?: string
-        city_district?: string
-        district?: string
-        suburb?: string
-    }
-}
-
-function formatLocationFromNominatim(
-    data: NominatimReverseResponse
-): string | undefined {
-    const a = data.address
-    if (!a) return undefined
-
-    const state = (a.state ?? a.province ?? a.region ?? "").trim()
-    const sigungu = (
-        a.city_district ??
-        a.city ??
-        a.county ??
-        a.borough ??
-        a.district ??
-        a.suburb ??
-        ""
-    ).trim()
-
-    if (state && sigungu && state !== sigungu) return `${state} ${sigungu}`
-    if (sigungu) return sigungu
-    if (state) return state
-    return data.display_name?.trim() || undefined
 }
 
 /**
@@ -140,68 +170,36 @@ export async function loader({ request }: { request: Request }) {
         )
     }
 
-    let resolvedLocation: string | undefined
-    try {
-        const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 4000)
-        const userAgent =
-            process.env.NOMINATIM_USER_AGENT ??
-            "29inch-dashboard/1.0 (local; contact via NOMINATIM_USER_AGENT)"
-
-        const reverseRes = await fetch(
-            `${NOMINATIM_BASE}/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=10&accept-language=ko`,
-            {
-                signal: controller.signal,
-                headers: {
-                    "user-agent": userAgent,
-                    accept: "application/json",
-                },
-            }
-        )
-
-        if (reverseRes.ok) {
-            const reverseJson =
-                (await reverseRes.json()) as NominatimReverseResponse
-            resolvedLocation = formatLocationFromNominatim(reverseJson)
-        }
-
-        clearTimeout(timeout)
-    } catch {
-        // ignore reverse-geocoding failures; fall back to current.name
+    const key = cacheKeyForLatLon(lat, lon)
+    const cachedWeather = weatherCache.get(key)
+    if (cachedWeather && cachedWeather.expiresAt > Date.now()) {
+        return new Response(JSON.stringify(cachedWeather.payload), {
+            status: 200,
+            headers: {
+                "content-type": "application/json; charset=utf-8",
+                "cache-control": "public, max-age=600",
+            },
+        })
     }
 
-    if (!resolvedLocation) {
-        try {
-            const owReverseRes = await fetch(
-                `${OPENWEATHER_GEO_BASE}/reverse?lat=${lat}&lon=${lon}&limit=1&appid=${apiKey}`
-            )
-            if (owReverseRes.ok) {
-                const owJson =
-                    (await owReverseRes.json()) as OpenWeatherReverseGeoItem[]
-                if (Array.isArray(owJson) && owJson.length > 0) {
-                    resolvedLocation = formatLocationFromOpenWeatherGeo(
-                        owJson[0]
-                    )
-                }
-            }
-        } catch {
-            // ignore OpenWeather Geo failures
-        }
-    }
+    // 지명은 느릴 수 있으니 병렬로 시작 + 짧게만 기다림
+    const locationPromise = resolveLocationFast(lat, lon, apiKey)
 
-    // 현재 날씨
-    const currentRes = await fetch(
-        `${OPENWEATHER_BASE}/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric&lang=kr`
-    )
+    const currentUrl = `${OPENWEATHER_BASE}/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric&lang=kr`
+    const forecastUrl = `${OPENWEATHER_BASE}/forecast?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric&lang=kr`
+
+    const [currentRes, forecastRes] = await Promise.all([
+        fetchWithTimeout(currentUrl, undefined, 3500),
+        fetchWithTimeout(forecastUrl, undefined, 3500),
+    ])
+
     if (!currentRes.ok) throw new Error("Current weather fetch failed")
-    const current = await currentRes.json()
-
-    // 예보
-    const forecastRes = await fetch(
-        `${OPENWEATHER_BASE}/forecast?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric&lang=kr`
-    )
     if (!forecastRes.ok) throw new Error("Forecast fetch failed")
-    const forecastJson = await forecastRes.json()
+
+    const [current, forecastJson] = await Promise.all([
+        currentRes.json(),
+        forecastRes.json(),
+    ])
 
     /**
      * 날짜별 집계
@@ -261,6 +259,16 @@ export async function loader({ request }: { request: Request }) {
         })
         .slice(1)
 
+    let resolvedLocation: string | undefined = undefined
+    try {
+        resolvedLocation = await Promise.race([
+            locationPromise,
+            delay(250).then(() => undefined),
+        ])
+    } catch {
+        resolvedLocation = undefined
+    }
+
     const payload: WeatherCardData = {
         location: resolvedLocation ?? current.name,
         temperature: Math.round(current.main.temp),
@@ -271,6 +279,11 @@ export async function loader({ request }: { request: Request }) {
         iconCode: current.weather[0].icon,
         forecast,
     }
+
+    weatherCache.set(key, {
+        expiresAt: Date.now() + WEATHER_CACHE_TTL_MS,
+        payload,
+    })
 
     return new Response(JSON.stringify(payload), {
         status: 200,

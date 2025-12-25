@@ -39,6 +39,10 @@ function markerColor(idx: number) {
     return colors[idx % colors.length]
 }
 
+function markerColorForItem(item: ScheduleItem, idx: number) {
+    return item.color ?? markerColor(idx)
+}
+
 export function ScheduleWidget() {
     const [now, setNow] = useState(() => new Date())
     const [items, setItems] = useState<ScheduleItem[]>([])
@@ -98,7 +102,14 @@ export function ScheduleWidget() {
                 </div>
 
                 {/* Scroll Area */}
-                <div className="mt-[26px] flex-1 overflow-y-auto pr-[12px]">
+                <div
+                    className="mt-[26px] flex-1 overflow-y-auto overflow-x-hidden pr-[12px] no-scrollbar touch-pan-y select-none overscroll-x-none"
+                    data-disable-widget-swipe="true"
+                    style={{
+                        WebkitOverflowScrolling: "touch",
+                        touchAction: "pan-y",
+                    }}
+                >
                     {upcoming.length === 0 ? (
                         <div className="text-white/70 text-[28px] font-bold">
                             오늘 일정이 없습니다.
@@ -115,7 +126,7 @@ export function ScheduleWidget() {
                                             className="w-[10px] h-[35px] rounded-full shrink-0"
                                             style={{
                                                 backgroundColor:
-                                                    markerColor(idx),
+                                                    markerColorForItem(e, idx),
                                             }}
                                         />
                                         <div className="min-w-0">

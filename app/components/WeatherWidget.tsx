@@ -61,10 +61,58 @@ export function WeatherWidget() {
                 )
             })
 
+        const readCachedCoords = (): { lat: number; lon: number } | null => {
+            try {
+                const raw = localStorage.getItem("weather:lastCoords")
+                if (!raw) return null
+                const parsed = JSON.parse(raw) as {
+                    lat?: unknown
+                    lon?: unknown
+                    ts?: unknown
+                }
+                const lat = Number(parsed.lat)
+                const lon = Number(parsed.lon)
+                const ts = Number(parsed.ts)
+                if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null
+                if (!Number.isFinite(ts)) return { lat, lon }
+
+                // 10분 이내 좌표만 즉시 사용
+                if (Date.now() - ts > 10 * 60 * 1000) return null
+                return { lat, lon }
+            } catch {
+                return null
+            }
+        }
+
+        const writeCachedCoords = (coords: { lat: number; lon: number }) => {
+            try {
+                localStorage.setItem(
+                    "weather:lastCoords",
+                    JSON.stringify({ ...coords, ts: Date.now() })
+                )
+            } catch {
+                // ignore
+            }
+        }
+
         const load = async () => {
             if (autoLocation) {
+                // 1) 캐시된 좌표가 있으면 즉시 사용
+                const cached = readCachedCoords()
+                if (cached) {
+                    const next = await fetchWeather(cached)
+                    if (!cancelled && next) setData(next)
+                } else {
+                    // 2) 서버 env fallback이 있으면 먼저 한 번 로드 (지오로케이션 대기 없이)
+                    const base = await fetchWeather()
+                    if (!cancelled && base) setData(base)
+                }
+
+                // 3) 백그라운드로 현재 위치를 받아서 최신 좌표로 갱신
                 const coords = await getCoords()
-                const next = await fetchWeather(coords ?? undefined)
+                if (!coords) return
+                writeCachedCoords(coords)
+                const next = await fetchWeather(coords)
                 if (!cancelled) setData(next)
                 return
             }
