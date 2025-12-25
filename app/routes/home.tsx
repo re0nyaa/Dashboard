@@ -6,6 +6,7 @@ import { DateDisplay } from "../components/DateDisplay"
 import { NewsCarousel } from "../components/NewsCarousel"
 import { MusicPlayer } from "../components/MusicPlayer"
 import { CalendarWidget } from "~/components/CalendarWidget"
+import { ScheduleWidget } from "~/components/ScheduleWidget"
 import { WeatherWidget } from "~/components/WeatherWidget"
 
 export function meta({}: Route.MetaArgs) {
@@ -25,12 +26,13 @@ export default function Home() {
         <NewsCarousel key="news" />,
         <WeatherWidget key="weather" />,
         <CalendarWidget key="calendar" />,
+        <ScheduleWidget key="schedule" />,
         <MusicPlayer key="music" />,
     ]
 
     const widgetCount = widgets.length
 
-    const isMusicWidget = activeWidget === 3
+    const isMusicWidget = activeWidget === 4
 
     const goNext = () => setActiveWidget((prev) => (prev + 1) % widgetCount)
     const goPrev = () =>

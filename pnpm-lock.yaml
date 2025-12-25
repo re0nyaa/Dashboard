@@ -26,6 +26,9 @@ importers:
       isbot:
         specifier: ^5.1.31
         version: 5.1.32
+      node-ical:
+        specifier: ^0.22.1
+        version: 0.22.1
       qrcode:
         specifier: ^1.5.4
         version: 1.5.4
@@ -1146,6 +1149,10 @@ packages:
     resolution: {integrity: sha512-myRT3DiWPHqho5PrJaIRyaMv2kgYf0mUVgBNOYMuCH5Ki1yEiQaf/ZJuQ62nvpc44wL5WDbTX7yGJi1Neevw8w==}
     engines: {node: '>= 0.6'}
 
+  node-ical@0.22.1:
+    resolution: {integrity: sha512-rMdc5hhJT3ZPtZIWfEXcetRrPl2xeHGpMJX8lq4VwyLKfOzGr+rXVtx0lD8lSf27Hn3mxrbU3MUcMSMXp4rIQA==}
+    engines: {node: '>=18'}
+
   node-releases@2.0.27:
     resolution: {integrity: sha512-nmh3lCkYZ3grZvqcCH+fjmQ7X+H0OeZgP40OierEaAptX4XofMh5kwNbWh7lBduUzCcV/8kZ+NDLCwm2iorIlA==}
 
@@ -1285,6 +1292,9 @@ packages:
     resolution: {integrity: sha512-iTNAbFSlRpcHeeWu73ywU/8KuU/LZmNCSxp6fjQkJBD3ivUb8tpDrXhIxEzA05HlYMEwmtaUnb3RP+YNv162OQ==}
     engines: {node: '>=18.0.0', npm: '>=8.0.0'}
     hasBin: true
+
+  rrule@2.8.1:
+    resolution: {integrity: sha512-hM3dHSBMeaJ0Ktp7W38BJZ7O1zOgaFEsn41PDk+yHoEtfLV+PoJt9E9xAlZiWgf/iqEqionN0ebHFZIDAp+iGw==}
 
   safe-buffer@5.1.2:
     resolution: {integrity: sha512-Gd2UZBJDkXlY7GbJxfsE8/nvKkUEU1G38c1siN6QP6a9PT9MmHB8GnpscSmMJSoF8LOIrt8ud/wPtojys4G6+g==}
@@ -2492,6 +2502,10 @@ snapshots:
 
   negotiator@0.6.4: {}
 
+  node-ical@0.22.1:
+    dependencies:
+      rrule: 2.8.1
+
   node-releases@2.0.27: {}
 
   object-inspect@1.13.4: {}
@@ -2626,6 +2640,10 @@ snapshots:
       '@rollup/rollup-win32-x64-gnu': 4.53.5
       '@rollup/rollup-win32-x64-msvc': 4.53.5
       fsevents: 2.3.3
+
+  rrule@2.8.1:
+    dependencies:
+      tslib: 2.8.1
 
   safe-buffer@5.1.2: {}
 
