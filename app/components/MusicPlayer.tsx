@@ -334,21 +334,33 @@ export function MusicPlayer() {
         }
     }
 
-    const dominantSourceUrl =
-        currentTrack?.coverUrl || recentTrack?.coverUrl || ""
+    const dominantColorCacheRef = useRef<Map<string, string>>(new Map())
     useEffect(() => {
-        let active = true
-        const run = async () => {
-            if (!dominantSourceUrl) return
-            const color = await extractDominantColor(dominantSourceUrl)
-            if (!active) return
-            if (color) setAccentColor(color)
+        if (!currentTrack?.id || !currentTrack.coverUrl) return
+
+        const trackId = currentTrack.id
+        const coverUrl = currentTrack.coverUrl
+
+        const cached = dominantColorCacheRef.current.get(trackId)
+        if (cached) {
+            setAccentColor(cached)
+            return
         }
-        void run()
+
+        let alive = true
+
+        ;(async () => {
+            const color = await extractDominantColor(coverUrl)
+            if (!alive || !color) return
+
+            dominantColorCacheRef.current.set(trackId, color)
+            setAccentColor(color)
+        })()
+
         return () => {
-            active = false
+            alive = false
         }
-    }, [dominantSourceUrl])
+    }, [currentTrack?.id])
 
     const waveMask =
         "linear-gradient(to right, transparent 0px, black 50px, black calc(100% - 50px), transparent 100%)"
@@ -849,7 +861,6 @@ export function MusicPlayer() {
                                         setIsSeeking(false)
                                         void handleSeekCommit(pos)
                                     } else {
-                                        // Tap-to-seek (only if we didn't do a vertical scroll gesture)
                                         if (
                                             seekStartXRef.current !== null &&
                                             seekGestureLockRef.current !==
@@ -1134,18 +1145,14 @@ function lightenRgb(
         b: clamp255(rgb.b + (255 - rgb.b) * a),
     }
 }
-
 export async function extractDominantColor(
     imageUrl: string
 ): Promise<string | null> {
     try {
-        const bustUrl =
-            imageUrl + (imageUrl.includes("?") ? "&" : "?") + "cb=" + Date.now()
-
         try {
-            const res = await fetch(bustUrl, {
+            const res = await fetch(imageUrl, {
                 mode: "cors",
-                cache: "no-store",
+                cache: "force-cache",
             })
 
             if (res.ok) {
@@ -1153,11 +1160,7 @@ export async function extractDominantColor(
                 const objectUrl = URL.createObjectURL(blob)
 
                 try {
-                    const palette = await new Vibrant(objectUrl, {
-                        cache: false,
-                    })
-                        .clearFilters()
-                        .getPalette()
+                    const palette = await new Vibrant(objectUrl).getPalette()
 
                     const rgb =
                         palette.Vibrant?.rgb ??
@@ -1179,7 +1182,7 @@ export async function extractDominantColor(
                 }
             }
         } catch {
-            // Vibrant 실패 시 canvas fallback
+            // Vibrant 실패 → canvas fallback
         }
 
         const img = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -1188,7 +1191,7 @@ export async function extractDominantColor(
             el.decoding = "async"
             el.onload = () => resolve(el)
             el.onerror = () => reject(new Error("image load failed"))
-            el.src = bustUrl
+            el.src = imageUrl
         })
 
         const size = 32
@@ -1215,11 +1218,9 @@ export async function extractDominantColor(
             const max = Math.max(r, g, b)
             const min = Math.min(r, g, b)
 
-            // 너무 어둡거나 밝은 색 제외
             if (max < 20) continue
             if (min > 235) continue
 
-            // 4bit 양자화
             const key = ((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4)
             counts.set(key, (counts.get(key) ?? 0) + 1)
         }
@@ -1229,21 +1230,16 @@ export async function extractDominantColor(
 
         for (const [k, c] of counts) {
             if (c > bestCount) {
-                bestCount = c
                 bestKey = k
+                bestCount = c
             }
         }
 
         if (bestKey == null) return null
 
-        const rQ = (bestKey >> 8) & 0x0f
-        const gQ = (bestKey >> 4) & 0x0f
-        const bQ = bestKey & 0x0f
-
-        // 양자화 중심값
-        const r = rQ * 16 + 8
-        const g = gQ * 16 + 8
-        const b = bQ * 16 + 8
+        const r = ((bestKey >> 8) & 0x0f) * 16 + 8
+        const g = ((bestKey >> 4) & 0x0f) * 16 + 8
+        const b = (bestKey & 0x0f) * 16 + 8
 
         return `rgb(${r}, ${g}, ${b})`
     } catch {
