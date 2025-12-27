@@ -7,6 +7,11 @@ type DayCell = {
     col: number
 }
 
+type HolidaySet = Set<number>
+
+/* =========================
+   달력 그리드 생성
+========================= */
 function buildMonthGrid(date: Date): DayCell[] {
     const year = date.getFullYear()
     const month = date.getMonth()
@@ -23,14 +28,22 @@ function buildMonthGrid(date: Date): DayCell[] {
         const dayInMonth = i - firstDayCol + 1
 
         if (dayInMonth < 1) {
-            const day = daysInPrevMonth + dayInMonth
-            cells.push({ day, inMonth: false, isToday: false, col })
+            cells.push({
+                day: daysInPrevMonth + dayInMonth,
+                inMonth: false,
+                isToday: false,
+                col,
+            })
             continue
         }
 
         if (dayInMonth > daysInMonth) {
-            const day = dayInMonth - daysInMonth
-            cells.push({ day, inMonth: false, isToday: false, col })
+            cells.push({
+                day: dayInMonth - daysInMonth,
+                inMonth: false,
+                isToday: false,
+                col,
+            })
             continue
         }
 
@@ -45,8 +58,39 @@ function buildMonthGrid(date: Date): DayCell[] {
     return cells
 }
 
+/* =========================
+   대한민국 공휴일 조회 (서버 API)
+========================= */
+async function fetchKoreanHolidays(
+    year: number,
+    month: number
+): Promise<HolidaySet> {
+    const url = `/api/holidays?year=${year}&month=${month}`
+
+    try {
+        const res = await fetch(url)
+        if (!res.ok) return new Set<number>()
+
+        const days = (await res.json()) as unknown
+        if (!Array.isArray(days)) return new Set<number>()
+
+        const set = new Set<number>()
+        for (const d of days) {
+            const n = typeof d === "number" ? d : Number.parseInt(String(d), 10)
+            if (Number.isFinite(n)) set.add(n)
+        }
+        return set
+    } catch {
+        return new Set<number>()
+    }
+}
+
+/* =========================
+   캘린더 위젯
+========================= */
 export function CalendarWidget() {
     const [now, setNow] = useState(() => new Date())
+    const [holidays, setHolidays] = useState<HolidaySet>(new Set())
 
     useEffect(() => {
         const timer = window.setInterval(() => setNow(new Date()), 60 * 1000)
@@ -56,6 +100,11 @@ export function CalendarWidget() {
     const year = now.getFullYear()
     const month = String(now.getMonth() + 1).padStart(2, "0")
     const day = String(now.getDate()).padStart(2, "0")
+
+    /* 공휴일 로드 (월 단위) */
+    useEffect(() => {
+        fetchKoreanHolidays(year, now.getMonth() + 1).then(setHolidays)
+    }, [year, now.getMonth()])
 
     const weekdayNames = [
         "일요일",
@@ -80,6 +129,7 @@ export function CalendarWidget() {
             <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-white/0" />
 
             <div className="relative h-full w-full flex items-stretch px-[56px] py-[44px]">
+                {/* LEFT */}
                 <div className="flex-1 min-w-0 flex flex-col justify-start">
                     <div className="text-white/90 text-[34px] font-black tracking-tight">
                         {year}. {month}
@@ -92,6 +142,7 @@ export function CalendarWidget() {
                     </div>
                 </div>
 
+                {/* RIGHT */}
                 <div className="w-[420px] flex items-center justify-end">
                     <div className="grid grid-cols-7 gap-[10px]">
                         {grid.map((cell, idx) => {
@@ -99,9 +150,18 @@ export function CalendarWidget() {
                             const isSaturday = cell.col === 6
                             const isSelected = cell.inMonth && cell.isToday
 
+                            const yyyymmdd =
+                                year * 10000 +
+                                (now.getMonth() + 1) * 100 +
+                                cell.day
+
+                            const isHoliday =
+                                cell.inMonth && holidays.has(yyyymmdd)
+
                             const base =
                                 "w-[50px] h-[50px] rounded-[10px] flex items-center justify-center text-[26px] font-black"
 
+                            /* 이전/다음 달 */
                             if (!cell.inMonth) {
                                 return (
                                     <div
@@ -113,6 +173,7 @@ export function CalendarWidget() {
                                 )
                             }
 
+                            /* 오늘 */
                             if (isSelected) {
                                 return (
                                     <div
@@ -124,6 +185,19 @@ export function CalendarWidget() {
                                 )
                             }
 
+                            /* 공휴일 */
+                            if (isHoliday) {
+                                return (
+                                    <div
+                                        key={idx}
+                                        className={`${base} bg-white/70 text-red-500`}
+                                    >
+                                        {cell.day}
+                                    </div>
+                                )
+                            }
+
+                            /* 주말 */
                             const weekendColor = isSunday
                                 ? "text-red-500"
                                 : isSaturday
