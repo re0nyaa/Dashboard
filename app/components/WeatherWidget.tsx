@@ -19,7 +19,7 @@ function SmallWeatherIcon({ iconCode }: { iconCode?: string }) {
 function OWIcon({ icon, size = 150 }: { icon: string; size?: number }) {
     return (
         <img
-            src={`https://openweathermap.org/img/wn/${icon}@4x.png`}
+            src={`/weather/${icon}.svg`}
             width={size}
             height={size}
             alt=""

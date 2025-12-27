@@ -160,8 +160,8 @@ export async function loader({ request }: { request: Request }) {
         process.env.LOCATION_LON ?? process.env.VITE_LOCATION_LON ?? null
     )
 
-    const lat = latParam ?? latEnv
-    const lon = lonParam ?? lonEnv
+    const lat = latParam || latEnv
+    const lon = lonParam || lonEnv
 
     if (lat === undefined || lon === undefined) {
         return new Response(
