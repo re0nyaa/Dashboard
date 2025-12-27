@@ -1135,14 +1135,51 @@ function lightenRgb(
     }
 }
 
-async function extractDominantColor(imageUrl: string): Promise<string | null> {
+export async function extractDominantColor(
+    imageUrl: string
+): Promise<string | null> {
     try {
-        const vibrantColor = await Vibrant.from(imageUrl)
-            .getPalette()
-            .then((palette) => palette.Vibrant?.rgb)
-        if (vibrantColor) {
-            const [r, g, b] = vibrantColor
-            return `rgb(${r}, ${g}, ${b})`
+        const bustUrl =
+            imageUrl + (imageUrl.includes("?") ? "&" : "?") + "cb=" + Date.now()
+
+        try {
+            const res = await fetch(bustUrl, {
+                mode: "cors",
+                cache: "no-store",
+            })
+
+            if (res.ok) {
+                const blob = await res.blob()
+                const objectUrl = URL.createObjectURL(blob)
+
+                try {
+                    const palette = await new Vibrant(objectUrl, {
+                        cache: false,
+                    })
+                        .clearFilters()
+                        .getPalette()
+
+                    const rgb =
+                        palette.Vibrant?.rgb ??
+                        palette.Muted?.rgb ??
+                        palette.LightVibrant?.rgb ??
+                        palette.DarkVibrant?.rgb ??
+                        palette.LightMuted?.rgb ??
+                        palette.DarkMuted?.rgb ??
+                        null
+
+                    if (rgb) {
+                        const [r, g, b] = rgb
+                        return `rgb(${Math.round(r)}, ${Math.round(
+                            g
+                        )}, ${Math.round(b)})`
+                    }
+                } finally {
+                    URL.revokeObjectURL(objectUrl)
+                }
+            }
+        } catch {
+            // Vibrant 실패 시 canvas fallback
         }
 
         const img = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -1151,15 +1188,17 @@ async function extractDominantColor(imageUrl: string): Promise<string | null> {
             el.decoding = "async"
             el.onload = () => resolve(el)
             el.onerror = () => reject(new Error("image load failed"))
-            el.src = imageUrl
+            el.src = bustUrl
         })
 
         const size = 32
         const canvas = document.createElement("canvas")
         canvas.width = size
         canvas.height = size
+
         const ctx = canvas.getContext("2d")
         if (!ctx) return null
+
         ctx.drawImage(img, 0, 0, size, size)
 
         const { data } = ctx.getImageData(0, 0, size, size)
@@ -1168,35 +1207,44 @@ async function extractDominantColor(imageUrl: string): Promise<string | null> {
         for (let i = 0; i < data.length; i += 4) {
             const a = data[i + 3]
             if (a < 200) continue
+
             const r = data[i]
             const g = data[i + 1]
             const b = data[i + 2]
 
             const max = Math.max(r, g, b)
             const min = Math.min(r, g, b)
+
+            // 너무 어둡거나 밝은 색 제외
             if (max < 20) continue
             if (min > 235) continue
 
+            // 4bit 양자화
             const key = ((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4)
             counts.set(key, (counts.get(key) ?? 0) + 1)
         }
 
         let bestKey: number | null = null
         let bestCount = 0
+
         for (const [k, c] of counts) {
             if (c > bestCount) {
                 bestCount = c
                 bestKey = k
             }
         }
+
         if (bestKey == null) return null
 
         const rQ = (bestKey >> 8) & 0x0f
         const gQ = (bestKey >> 4) & 0x0f
         const bQ = bestKey & 0x0f
+
+        // 양자화 중심값
         const r = rQ * 16 + 8
         const g = gQ * 16 + 8
         const b = bQ * 16 + 8
+
         return `rgb(${r}, ${g}, ${b})`
     } catch {
         return null
