@@ -1,7 +1,7 @@
 <svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect x="55.9541" y="91.3782" width="10" height="32.462" rx="5" transform="rotate(45 55.9541 91.3782)" fill="white"/>
-<rect x="110.12" y="68" width="10" height="81.2184" rx="5" transform="rotate(45 110.12 68)" fill="white"/>
-<rect x="124.196" y="84.3331" width="10" height="48.8956" rx="5" transform="rotate(45 124.196 84.3331)" fill="white"/>
-<rect x="160.708" y="75.3331" width="10" height="60.9341" rx="5" transform="rotate(45 160.708 75.3331)" fill="white"/>
-<circle cx="66.6206" cy="84.3331" r="5" fill="white"/>
+<rect x="55.9541" y="91.3782" width="10" height="32.462" rx="5" transform="rotate(45 55.9541 91.3782)" fill="#888888"/>
+<rect x="110.12" y="68" width="10" height="81.2184" rx="5" transform="rotate(45 110.12 68)" fill="#888888"/>
+<rect x="124.196" y="84.3331" width="10" height="48.8956" rx="5" transform="rotate(45 124.196 84.3331)" fill="#888888"/>
+<rect x="160.708" y="75.3331" width="10" height="60.9341" rx="5" transform="rotate(45 160.708 75.3331)" fill="#888888"/>
+<circle cx="66.6206" cy="84.3331" r="5" fill="#888888"/>
 </svg>
