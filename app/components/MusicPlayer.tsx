@@ -28,6 +28,7 @@ import {
     startSpotifyLogin,
 } from "../utils/spotifyAuth"
 import { useToaster } from "./Toaster"
+import { Vibrant } from "node-vibrant/browser"
 
 interface Track {
     id?: string
@@ -1136,6 +1137,14 @@ function lightenRgb(
 
 async function extractDominantColor(imageUrl: string): Promise<string | null> {
     try {
+        const vibrantColor = await Vibrant.from(imageUrl)
+            .getPalette()
+            .then((palette) => palette.Vibrant?.rgb)
+        if (vibrantColor) {
+            const [r, g, b] = vibrantColor
+            return `rgb(${r}, ${g}, ${b})`
+        }
+
         const img = await new Promise<HTMLImageElement>((resolve, reject) => {
             const el = new Image()
             el.crossOrigin = "anonymous"

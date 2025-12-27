@@ -22,7 +22,7 @@ function getClientId(): string {
 
 function getRedirectUri(): string {
     return (
-        import.meta.env.VITE_SPOTIFY_REDIRECT_URI ||
+        // import.meta.env.VITE_SPOTIFY_REDIRECT_URI ||
         window.location.origin + "/callback"
     )
 }
