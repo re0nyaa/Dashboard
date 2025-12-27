@@ -50,8 +50,6 @@ export async function loader({ request }: { request: Request }) {
 
     const mm = String(month).padStart(2, "0")
 
-    // NOTE: data.go.kr service keys are often already URL-encoded.
-    // Using URLSearchParams can double-encode and break auth, so keep it raw.
     const upstreamUrl =
         `https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getHoliDeInfo` +
         `?serviceKey=${apiKey}` +
