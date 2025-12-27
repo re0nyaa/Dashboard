@@ -733,7 +733,7 @@ export function MusicPlayer() {
                         />
                         <div
                             className="absolute top-0 h-[24px] w-[24px] rounded-full"
-                            style={{ left: `${knobLeft}px` }}
+                            style={{ left: `${knobLeft - 5}px` }}
                         >
                             <div
                                 className="w-full h-full rounded-full"
