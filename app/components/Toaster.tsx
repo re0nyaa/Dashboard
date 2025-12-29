@@ -70,18 +70,18 @@ export function ToasterProvider({ children }: { children: ReactNode }) {
         { bg: string; border: string; text: string }
     > = {
         info: {
-            bg: "bg-slate-900/90",
-            border: "border-slate-500/60",
+            bg: "bg-slate-500",
+            border: "border-slate-500",
             text: "text-slate-50",
         },
         success: {
-            bg: "bg-emerald-900/90",
-            border: "border-emerald-500/60",
+            bg: "bg-emerald-500",
+            border: "border-emerald-500",
             text: "text-emerald-50",
         },
         error: {
-            bg: "bg-rose-900/90",
-            border: "border-rose-500/60",
+            bg: "bg-rose-500    ",
+            border: "border-rose-500",
             text: "text-rose-50",
         },
     }

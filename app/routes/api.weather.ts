@@ -1,15 +1,12 @@
-import type { WeatherCardData, WeatherCardForecastItem } from "../utils/weather"
+import type { WeatherCardData, WeatherCardForecastItem } from '../utils/weather'
 
-const OPENWEATHER_BASE = "https://api.openweathermap.org/data/2.5"
-const OPENWEATHER_GEO_BASE = "https://api.openweathermap.org/geo/1.0"
+const OPENWEATHER_BASE = 'https://api.openweathermap.org/data/2.5'
+const OPENWEATHER_GEO_BASE = 'https://api.openweathermap.org/geo/1.0'
 
 const WEATHER_CACHE_TTL_MS = 60 * 1000
 const LOCATION_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 
-const weatherCache = new Map<
-    string,
-    { expiresAt: number; payload: WeatherCardData }
->()
+const weatherCache = new Map<string, { expiresAt: number; payload: WeatherCardData }>()
 
 const locationCache = new Map<string, { expiresAt: number; location: string }>()
 
@@ -52,8 +49,7 @@ async function resolveLocationFast(
             900
         )
         if (owReverseRes.ok) {
-            const owJson =
-                (await owReverseRes.json()) as OpenWeatherReverseGeoItem[]
+            const owJson = (await owReverseRes.json()) as OpenWeatherReverseGeoItem[]
             if (Array.isArray(owJson) && owJson.length > 0) {
                 const loc = formatLocationFromOpenWeatherGeo(owJson[0])
                 if (loc) {
@@ -79,57 +75,47 @@ type OpenWeatherReverseGeoItem = {
     state?: string
 }
 
-function formatLocationFromOpenWeatherGeo(
-    item: OpenWeatherReverseGeoItem
-): string | undefined {
-    const place = (item.local_names?.ko ?? item.name ?? "").trim()
+function formatLocationFromOpenWeatherGeo(item: OpenWeatherReverseGeoItem): string | undefined {
+    const place = (item.local_names?.ko ?? item.name ?? '').trim()
     if (!place) return undefined
 
-    const state = (item.state ?? "").trim()
+    const state = (item.state ?? '').trim()
     if (state && state !== place) return `${state} ${place}`
     return place
 }
 
-/**
- * 현재 날씨 한글 조건
- */
 function toCondition(main: string): string {
     switch (main) {
-        case "Clear":
-            return "맑음"
-        case "Clouds":
-            return "흐림"
-        case "Rain":
-        case "Drizzle":
-            return "비"
-        case "Thunderstorm":
-            return "뇌우"
-        case "Snow":
-            return "눈"
-        case "Mist":
-        case "Smoke":
-        case "Haze":
-        case "Dust":
-        case "Fog":
-        case "Sand":
-        case "Ash":
-        case "Squall":
-        case "Tornado":
-            return "안개"
+        case 'Clear':
+            return '맑음'
+        case 'Clouds':
+            return '흐림'
+        case 'Rain':
+        case 'Drizzle':
+            return '비'
+        case 'Thunderstorm':
+            return '뇌우'
+        case 'Snow':
+            return '눈'
+        case 'Mist':
+        case 'Smoke':
+        case 'Haze':
+        case 'Dust':
+        case 'Fog':
+        case 'Sand':
+        case 'Ash':
+        case 'Squall':
+        case 'Tornado':
+            return '안개'
         default:
             return main
     }
 }
 
 function weekdayKorean(date: Date) {
-    return ["일", "월", "화", "수", "목", "금", "토"][date.getDay()] + "요일"
+    return ['일', '월', '화', '수', '목', '금', '토'][date.getDay()] + '요일'
 }
 
-/**
- * 날짜별 집계 타입
- * - iconAM: 00~12
- * - iconPM: 13~24
- */
 type DayAgg = {
     min: number
     max: number
@@ -140,7 +126,7 @@ type DayAgg = {
 export async function loader({ request }: { request: Request }) {
     const apiKey = process.env.OPENWEATHER_API_KEY
     if (!apiKey) {
-        return new Response("Missing OPENWEATHER_API_KEY", { status: 500 })
+        return new Response('Missing OPENWEATHER_API_KEY', { status: 500 })
     }
 
     const toFiniteNumber = (value: string | null): number | undefined => {
@@ -150,22 +136,18 @@ export async function loader({ request }: { request: Request }) {
     }
 
     const url = new URL(request.url)
-    const latParam = toFiniteNumber(url.searchParams.get("lat"))
-    const lonParam = toFiniteNumber(url.searchParams.get("lon"))
+    const latParam = toFiniteNumber(url.searchParams.get('lat'))
+    const lonParam = toFiniteNumber(url.searchParams.get('lon'))
 
-    const latEnv = toFiniteNumber(
-        process.env.LOCATION_LAT ?? process.env.VITE_LOCATION_LAT ?? null
-    )
-    const lonEnv = toFiniteNumber(
-        process.env.LOCATION_LON ?? process.env.VITE_LOCATION_LON ?? null
-    )
+    const latEnv = toFiniteNumber(process.env.LOCATION_LAT ?? process.env.VITE_LOCATION_LAT ?? null)
+    const lonEnv = toFiniteNumber(process.env.LOCATION_LON ?? process.env.VITE_LOCATION_LON ?? null)
 
     const lat = latParam || latEnv
     const lon = lonParam || lonEnv
 
     if (lat === undefined || lon === undefined) {
         return new Response(
-            "Missing location. Provide ?lat=...&lon=... or set LOCATION_LAT/LOCATION_LON",
+            'Missing location. Provide ?lat=...&lon=... or set LOCATION_LAT/LOCATION_LON',
             { status: 400 }
         )
     }
@@ -176,8 +158,8 @@ export async function loader({ request }: { request: Request }) {
         return new Response(JSON.stringify(cachedWeather.payload), {
             status: 200,
             headers: {
-                "content-type": "application/json; charset=utf-8",
-                "cache-control": "public, max-age=600",
+                'content-type': 'application/json; charset=utf-8',
+                'cache-control': 'public, max-age=600',
             },
         })
     }
@@ -193,25 +175,16 @@ export async function loader({ request }: { request: Request }) {
         fetchWithTimeout(forecastUrl, undefined, 3500),
     ])
 
-    if (!currentRes.ok) throw new Error("Current weather fetch failed")
-    if (!forecastRes.ok) throw new Error("Forecast fetch failed")
+    if (!currentRes.ok) throw new Error('Current weather fetch failed')
+    if (!forecastRes.ok) throw new Error('Forecast fetch failed')
 
-    const [current, forecastJson] = await Promise.all([
-        currentRes.json(),
-        forecastRes.json(),
-    ])
+    const [current, forecastJson] = await Promise.all([currentRes.json(), forecastRes.json()])
 
-    /**
-     * 날짜별 집계
-     * - 최저/최고 기온
-     * - 오전(00~12) 아이콘 1개
-     * - 오후(13~24) 아이콘 1개
-     */
     const byDate: Record<string, DayAgg> = {}
 
     for (const item of forecastJson.list) {
-        const [date, time] = item.dt_txt.split(" ")
-        const hour = Number(time.split(":")[0])
+        const [date, time] = item.dt_txt.split(' ')
+        const hour = Number(time.split(':')[0])
 
         const temp = item.main.temp
         const iconCode = item.weather[0].icon
@@ -239,11 +212,6 @@ export async function loader({ request }: { request: Request }) {
         }
     }
 
-    /**
-     * Forecast 결과 생성
-     * - 오늘 제외
-     * - 최대 5일
-     */
     const forecast: WeatherCardForecastItem[] = Object.entries(byDate)
         .slice(0, 5)
         .map(([date, v]) => {
@@ -253,18 +221,15 @@ export async function loader({ request }: { request: Request }) {
                 weekday: weekdayKorean(d),
                 minTemp: Math.round(v.min),
                 maxTemp: Math.round(v.max),
-                iconCodeAM: v.iconAM ?? "01d",
-                iconCodePM: v.iconPM ?? "01n",
+                iconCodeAM: v.iconAM ?? '01d',
+                iconCodePM: v.iconPM ?? '01n',
             }
         })
         .slice(1)
 
     let resolvedLocation: string | undefined = undefined
     try {
-        resolvedLocation = await Promise.race([
-            locationPromise,
-            delay(250).then(() => undefined),
-        ])
+        resolvedLocation = await Promise.race([locationPromise, delay(250).then(() => undefined)])
     } catch {
         resolvedLocation = undefined
     }
@@ -288,8 +253,8 @@ export async function loader({ request }: { request: Request }) {
     return new Response(JSON.stringify(payload), {
         status: 200,
         headers: {
-            "content-type": "application/json; charset=utf-8",
-            "cache-control": "public, max-age=600",
+            'content-type': 'application/json; charset=utf-8',
+            'cache-control': 'public, max-age=600',
         },
     })
 }
