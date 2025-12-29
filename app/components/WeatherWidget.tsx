@@ -17,15 +17,7 @@ function SmallWeatherIcon({ iconCode }: { iconCode?: string }) {
 }
 
 function OWIcon({ icon, size = 150 }: { icon: string; size?: number }) {
-    return (
-        <img
-            src={`/weather/${icon}.svg`}
-            width={size}
-            height={size}
-            alt=""
-            draggable={false}
-        />
-    )
+    return <img src={`/weather/${icon}.svg`} width={size} height={size} alt="" draggable={false} />
 }
 
 export function WeatherWidget() {
@@ -35,8 +27,7 @@ export function WeatherWidget() {
         let cancelled = false
 
         const autoLocationRaw =
-            (import.meta as any).env?.VITE_LOCATION_AUTO ??
-            (import.meta as any).env?.LOCATION_AUTO
+            (import.meta as any).env?.VITE_LOCATION_AUTO ?? (import.meta as any).env?.LOCATION_AUTO
         const autoLocation =
             String(autoLocationRaw ?? "")
                 .trim()
@@ -143,6 +134,8 @@ export function WeatherWidget() {
         눈: ["#D9D9D9", "#B7D6E3"],
         뇌우: ["#3B3F58", "#8A90B2"],
         안개: ["#7FAFD1", "#D6E4F0"],
+        "구름 약간": ["#7FAFD1", "#D6E4F0"],
+        "구름 많음": ["#7FAFD1", "#D6E4F0"],
     }
 
     const [fromHex, toHex] = gradientMap[condition] ?? ["#38BDF8", "#DBEAFE"]
@@ -156,17 +149,9 @@ export function WeatherWidget() {
         const fromHsl = hexToHsl(fromHex)
         const toHsl = hexToHsl(toHex)
 
-        finalFrom = hslToHex(
-            fromHsl.h,
-            Math.max(fromHsl.s - 25, 0),
-            Math.max(fromHsl.l - 40, 8)
-        )
+        finalFrom = hslToHex(fromHsl.h, Math.max(fromHsl.s - 25, 0), Math.max(fromHsl.l - 40, 8))
 
-        finalTo = hslToHex(
-            toHsl.h,
-            Math.max(toHsl.s - 30, 0),
-            Math.max(toHsl.l - 30, 12)
-        )
+        finalTo = hslToHex(toHsl.h, Math.max(toHsl.s - 30, 0), Math.max(toHsl.l - 30, 12))
     }
 
     return (
@@ -191,15 +176,15 @@ export function WeatherWidget() {
                             {temperature}°
                         </div>
 
-                        <div className="mt-[6px] text-white/95 text-[44px] font-black leading-none">
+                        <div className="mt-[6px] text-white/95 text-[46px] font-black leading-none">
                             {condition}
                         </div>
 
-                        <div className="mt-[34px] text-white/90 text-[32px] font-bold leading-tight">
+                        <div className="mt-[34px] text-white/90 text-[28px] font-bold leading-tight">
                             ↑ {maxTemp}° / ↓ {minTemp}°
                         </div>
 
-                        <div className="text-white/90 text-[32px] font-bold leading-tight">
+                        <div className="text-white/90 text-[28px] font-bold leading-tight">
                             체감온도 {feelsLike}°
                         </div>
                     </div>
@@ -225,16 +210,14 @@ export function WeatherWidget() {
                                     </div>
 
                                     <div className="flex justify-center">
-                                        <SmallWeatherIcon
-                                            iconCode={f.iconCodeAM}
-                                        />
-                                        <SmallWeatherIcon
-                                            iconCode={f.iconCodePM}
-                                        />
+                                        <SmallWeatherIcon iconCode={f.iconCodeAM} />
+                                        <SmallWeatherIcon iconCode={f.iconCodePM} />
                                     </div>
 
-                                    <div className="text-right text-white text-[34px] font-bold pr-[12px]">
-                                        {f.maxTemp}° {f.minTemp}°
+                                    <div className="text-right text-white text-[34px] font-bold pr-[12px] flex flex-col items-end">
+                                        <span>
+                                            {f.maxTemp}° {f.minTemp}°
+                                        </span>
                                     </div>
                                 </div>
 

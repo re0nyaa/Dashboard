@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { fetchNews, type NewsItem } from "../utils/rss"
 import { AnimatePresence, motion } from "framer-motion"
 import { toDataURL } from "qrcode"
+import { data } from "react-router"
 
 export function NewsCarousel() {
     const [news, setNews] = useState<NewsItem[]>([])
@@ -105,9 +106,7 @@ export function NewsCarousel() {
     if (news.length === 0) {
         return (
             <div className="w-[860px] h-[440px] bg-[#4b4b4b] rounded-[30px] flex items-center justify-center">
-                <div className="text-white/60 text-lg">
-                    뉴스를 불러올 수 없습니다
-                </div>
+                <div className="text-white/60 text-lg">뉴스를 불러올 수 없습니다</div>
             </div>
         )
     }
@@ -151,32 +150,31 @@ export function NewsCarousel() {
                     className="relative h-full w-full px-[72px] py-[56px]"
                 >
                     <div className="absolute right-[30px] top-[30px]">
-                        <img
-                            src="/yna.svg"
-                            alt="연합뉴스"
-                            className="w-[50px] h-[50px]"
-                        />
+                        <img src="/sbs.svg" alt="연합뉴스" className="w-[50px] h-[50px]" />
                     </div>
 
-                    <h2 className="mt-[40px] text-black text-[46px] font-black leading-[1.08] tracking-tight line-clamp-2">
+                    <h2 className="mt-[40px] text-black text-[40px] font-black leading-[1.08] tracking-tight line-clamp-2">
                         {currentNews.title}
                     </h2>
 
-                    <p className="mt-[30px] text-zinc-800 text-[32px] leading-[1.18] line-clamp-3 pr-[230px]">
+                    <p className="mt-[30px] text-zinc-800 text-[30px] leading-[1.18] line-clamp-3 pr-[230px]">
                         {currentNews.description}
                     </p>
 
+                    <p className="mt-[30px] text-gray-500 text-[20px]">
+                        {new Date(currentNews.pubDate.toString()).toLocaleString("ko-KR", {
+                            year: "numeric",
+                            month: "2-digit",
+                            day: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                        })}
+                    </p>
                     <div className="absolute right-[56px] bottom-[44px] w-[170px] h-[170px] rounded-[18px] bg-white flex items-center justify-center">
                         {currentQr ? (
-                            <img
-                                src={currentQr}
-                                alt="QR"
-                                className="w-[140px] h-[140px]"
-                            />
+                            <img src={currentQr} alt="QR" className="w-[120px] h-[1200px]" />
                         ) : (
-                            <div className="text-zinc-500 text-sm">
-                                QR 생성중
-                            </div>
+                            <div className="text-zinc-500 text-sm">QR 생성중</div>
                         )}
                     </div>
                 </motion.div>

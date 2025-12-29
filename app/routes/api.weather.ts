@@ -1,7 +1,7 @@
-import type { WeatherCardData, WeatherCardForecastItem } from '../utils/weather'
+import type { WeatherCardData, WeatherCardForecastItem } from "../utils/weather"
 
-const OPENWEATHER_BASE = 'https://api.openweathermap.org/data/2.5'
-const OPENWEATHER_GEO_BASE = 'https://api.openweathermap.org/geo/1.0'
+const OPENWEATHER_BASE = "https://api.openweathermap.org/data/2.5"
+const OPENWEATHER_GEO_BASE = "https://api.openweathermap.org/geo/1.0"
 
 const WEATHER_CACHE_TTL_MS = 60 * 1000
 const LOCATION_CACHE_TTL_MS = 24 * 60 * 60 * 1000
@@ -76,44 +76,47 @@ type OpenWeatherReverseGeoItem = {
 }
 
 function formatLocationFromOpenWeatherGeo(item: OpenWeatherReverseGeoItem): string | undefined {
-    const place = (item.local_names?.ko ?? item.name ?? '').trim()
+    const place = (item.local_names?.ko ?? item.name ?? "").trim()
     if (!place) return undefined
 
-    const state = (item.state ?? '').trim()
+    const state = (item.state ?? "").trim()
     if (state && state !== place) return `${state} ${place}`
     return place
 }
 
-function toCondition(main: string): string {
+function toCondition(main: string, cloudiness?: number): string {
     switch (main) {
-        case 'Clear':
-            return '맑음'
-        case 'Clouds':
-            return '흐림'
-        case 'Rain':
-        case 'Drizzle':
-            return '비'
-        case 'Thunderstorm':
-            return '뇌우'
-        case 'Snow':
-            return '눈'
-        case 'Mist':
-        case 'Smoke':
-        case 'Haze':
-        case 'Dust':
-        case 'Fog':
-        case 'Sand':
-        case 'Ash':
-        case 'Squall':
-        case 'Tornado':
-            return '안개'
+        case "Clear":
+            return "맑음"
+        case "Clouds": {
+            if (cloudiness === undefined) return "흐림"
+            if (cloudiness <= 50) return "구름 약간"
+            if (cloudiness <= 84) return "구름 많음"
+            return "흐림"
+        }
+        case "Rain":
+        case "Drizzle":
+            return "비"
+        case "Thunderstorm":
+            return "뇌우"
+        case "Snow":
+            return "눈"
+        case "Mist":
+        case "Smoke":
+        case "Haze":
+        case "Dust":
+        case "Fog":
+        case "Sand":
+        case "Ash":
+        case "Squall":
+            return "안개"
         default:
             return main
     }
 }
 
 function weekdayKorean(date: Date) {
-    return ['일', '월', '화', '수', '목', '금', '토'][date.getDay()] + '요일'
+    return ["일", "월", "화", "수", "목", "금", "토"][date.getDay()] + "요일"
 }
 
 type DayAgg = {
@@ -126,7 +129,7 @@ type DayAgg = {
 export async function loader({ request }: { request: Request }) {
     const apiKey = process.env.OPENWEATHER_API_KEY
     if (!apiKey) {
-        return new Response('Missing OPENWEATHER_API_KEY', { status: 500 })
+        return new Response("Missing OPENWEATHER_API_KEY", { status: 500 })
     }
 
     const toFiniteNumber = (value: string | null): number | undefined => {
@@ -136,8 +139,8 @@ export async function loader({ request }: { request: Request }) {
     }
 
     const url = new URL(request.url)
-    const latParam = toFiniteNumber(url.searchParams.get('lat'))
-    const lonParam = toFiniteNumber(url.searchParams.get('lon'))
+    const latParam = toFiniteNumber(url.searchParams.get("lat"))
+    const lonParam = toFiniteNumber(url.searchParams.get("lon"))
 
     const latEnv = toFiniteNumber(process.env.LOCATION_LAT ?? process.env.VITE_LOCATION_LAT ?? null)
     const lonEnv = toFiniteNumber(process.env.LOCATION_LON ?? process.env.VITE_LOCATION_LON ?? null)
@@ -147,7 +150,7 @@ export async function loader({ request }: { request: Request }) {
 
     if (lat === undefined || lon === undefined) {
         return new Response(
-            'Missing location. Provide ?lat=...&lon=... or set LOCATION_LAT/LOCATION_LON',
+            "Missing location. Provide ?lat=...&lon=... or set LOCATION_LAT/LOCATION_LON",
             { status: 400 }
         )
     }
@@ -158,8 +161,8 @@ export async function loader({ request }: { request: Request }) {
         return new Response(JSON.stringify(cachedWeather.payload), {
             status: 200,
             headers: {
-                'content-type': 'application/json; charset=utf-8',
-                'cache-control': 'public, max-age=600',
+                "content-type": "application/json; charset=utf-8",
+                "cache-control": "public, max-age=600",
             },
         })
     }
@@ -175,20 +178,19 @@ export async function loader({ request }: { request: Request }) {
         fetchWithTimeout(forecastUrl, undefined, 3500),
     ])
 
-    if (!currentRes.ok) throw new Error('Current weather fetch failed')
-    if (!forecastRes.ok) throw new Error('Forecast fetch failed')
+    if (!currentRes.ok) throw new Error("Current weather fetch failed")
+    if (!forecastRes.ok) throw new Error("Forecast fetch failed")
 
     const [current, forecastJson] = await Promise.all([currentRes.json(), forecastRes.json()])
 
     const byDate: Record<string, DayAgg> = {}
 
     for (const item of forecastJson.list) {
-        const [date, time] = item.dt_txt.split(' ')
-        const hour = Number(time.split(':')[0])
+        const [date, time] = item.dt_txt.split(" ")
+        const hour = Number(time.split(":")[0])
 
         const temp = item.main.temp
         const iconCode = item.weather[0].icon
-
         if (!byDate[date]) {
             byDate[date] = {
                 min: temp,
@@ -197,6 +199,8 @@ export async function loader({ request }: { request: Request }) {
         }
 
         const day = byDate[date]
+        const pop = item.pop ?? 0
+        const rain = item.rain?.["3h"] ?? item.snow?.["3h"] ?? 0
 
         day.min = Math.min(day.min, temp)
         day.max = Math.max(day.max, temp)
@@ -221,8 +225,8 @@ export async function loader({ request }: { request: Request }) {
                 weekday: weekdayKorean(d),
                 minTemp: Math.round(v.min),
                 maxTemp: Math.round(v.max),
-                iconCodeAM: v.iconAM ?? '01d',
-                iconCodePM: v.iconPM ?? '01n',
+                iconCodeAM: v.iconAM ?? "01d",
+                iconCodePM: v.iconPM ?? "01n",
             }
         })
         .slice(1)
@@ -240,7 +244,7 @@ export async function loader({ request }: { request: Request }) {
         feelsLike: Math.round(current.main.feels_like),
         minTemp: Math.round(current.main.temp_min),
         maxTemp: Math.round(current.main.temp_max),
-        condition: toCondition(current.weather[0].main),
+        condition: toCondition(current.weather[0].main, current.clouds?.all),
         iconCode: current.weather[0].icon,
         forecast,
     }
@@ -253,8 +257,8 @@ export async function loader({ request }: { request: Request }) {
     return new Response(JSON.stringify(payload), {
         status: 200,
         headers: {
-            'content-type': 'application/json; charset=utf-8',
-            'cache-control': 'public, max-age=600',
+            "content-type": "application/json; charset=utf-8",
+            "cache-control": "public, max-age=600",
         },
     })
 }

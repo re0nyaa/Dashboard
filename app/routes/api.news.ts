@@ -12,6 +12,7 @@ function stripHtml(input: string): string {
         .replace(/&lt;/g, "<")
         .replace(/&gt;/g, ">")
         .replace(/&amp;/g, "&")
+        .replace(/&#9650;/g, " ")
         .trim()
 }
 
@@ -25,10 +26,7 @@ export async function loader({ request }: { request: Request }) {
     const limitParam = url.searchParams.get("limit")
     const limit = Math.min(
         100,
-        Math.max(
-            1,
-            Number.isFinite(Number(limitParam)) ? Number(limitParam) : 25
-        )
+        Math.max(1, Number.isFinite(Number(limitParam)) ? Number(limitParam) : 25)
     )
 
     const controller = new AbortController()
@@ -39,8 +37,7 @@ export async function loader({ request }: { request: Request }) {
             signal: controller.signal,
             headers: {
                 accept: "application/rss+xml, application/xml;q=0.9, text/xml;q=0.8, */*;q=0.1",
-                "user-agent":
-                    "Mozilla/5.0 (compatible; 29inch-dashboard/1.0; +https://localhost)",
+                "user-agent": "Mozilla/5.0 (compatible; 29inch-dashboard/1.0; +https://localhost)",
             },
         })
 
