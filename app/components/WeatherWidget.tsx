@@ -1,3 +1,54 @@
+// 규칙 기반 날씨 설명 생성 함수
+function getWeatherDescription({
+    condition,
+    temperature,
+    feelsLike,
+    minTemp,
+    maxTemp,
+    iconCode,
+}: {
+    condition: string
+    temperature: number
+    feelsLike: number
+    minTemp: number
+    maxTemp: number
+    iconCode?: string
+}): string {
+    // 시간대 판별 (오전/오후/밤)
+    const hour = new Date().getHours()
+    const isNight = iconCode?.endsWith("n") || hour < 6 || hour >= 20
+    // 온도 범주
+    let tempDesc = ""
+    if (feelsLike >= 28) tempDesc = "무더운"
+    else if (feelsLike >= 23) tempDesc = "따뜻한"
+    else if (feelsLike >= 17) tempDesc = "선선한"
+    else if (feelsLike >= 10) tempDesc = "쌀쌀한"
+    else tempDesc = "추운"
+
+    // 날씨별 문장
+    switch (condition) {
+        case "맑음":
+            return isNight
+                ? `오늘 밤은 하늘이 맑고 ${tempDesc} 밤이에요.`
+                : `오늘은 하늘이 맑고 ${tempDesc} 날씨예요.`
+        case "흐림":
+        case "구름 많음":
+        case "구름 약간":
+            return isNight
+                ? `오늘 밤은 구름이 많고 ${tempDesc} 밤이에요.`
+                : `오늘은 구름이 많고 ${tempDesc} 날씨예요.`
+        case "비":
+            return `오늘은 비가 내리니 우산을 챙기세요.`
+        case "눈":
+            return `오늘은 눈이 내려 길이 미끄러울 수 있어요.`
+        case "뇌우":
+            return `오늘은 천둥번개가 칠 수 있으니 실내 활동을 추천해요.`
+        case "안개":
+            return `오늘은 안개가 껴서 가시거리가 짧아요. 운전 시 주의하세요.`
+        default:
+            return `오늘의 날씨는 ${condition}입니다.`
+    }
+}
 import { useEffect, useState } from "react"
 import { fetchWeather, type WeatherCardData } from "../utils/weather"
 import { FaLocationDot } from "react-icons/fa6"
@@ -185,8 +236,14 @@ export function WeatherWidget() {
                         </div>
 
                         <div className="w-[500px] mt-[34px] text-white/90 text-[30px] font-bold leading-tight">
-                            이 것은 예시 문장입니다. 실제 날씨 상태에 따라 이 문장은 달라질 수
-                            있습니다.
+                            {getWeatherDescription({
+                                condition,
+                                temperature,
+                                feelsLike,
+                                minTemp,
+                                maxTemp,
+                                iconCode: data?.iconCode,
+                            })}
                         </div>
                         <div className="text-gray-300 text-[18px] font-bold leading-tight flex items-center gap-2 mt-auto">
                             <FaLocationDot />
