@@ -57,9 +57,7 @@ export function MusicPlayer() {
     const [queue, setQueue] = useState<QueueTrack[]>([])
     const { pushToast } = useToaster()
     const [shuffleOn, setShuffleOn] = useState(false)
-    const [repeatMode, setRepeatModeState] = useState<
-        "off" | "track" | "context"
-    >("off")
+    const [repeatMode, setRepeatModeState] = useState<"off" | "track" | "context">("off")
 
     const [recentTrack, setRecentTrack] = useState<Track | null>(null)
     const [accentColor, setAccentColor] = useState<string>("#838383")
@@ -80,9 +78,7 @@ export function MusicPlayer() {
     const seekStartXRef = useRef<number | null>(null)
     const seekStartYRef = useRef<number | null>(null)
     const seekStartTimeRef = useRef<number | null>(null)
-    const seekGestureLockRef = useRef<"undecided" | "horizontal" | "vertical">(
-        "undecided"
-    )
+    const seekGestureLockRef = useRef<"undecided" | "horizontal" | "vertical">("undecided")
 
     const titleWrapRef = useRef<HTMLDivElement | null>(null)
     const titleMeasureRef = useRef<HTMLDivElement | null>(null)
@@ -223,21 +219,14 @@ export function MusicPlayer() {
 
                 if (token) {
                     setAccessToken(token)
-                    await Promise.all([
-                        loadCurrentTrack(token),
-                        loadQueue(token),
-                    ])
+                    await Promise.all([loadCurrentTrack(token), loadQueue(token)])
 
                     intervalId = window.setInterval(async () => {
-                        const valid =
-                            (await getValidSpotifyAccessToken()) || envToken
+                        const valid = (await getValidSpotifyAccessToken()) || envToken
                         if (!valid) return
                         if (!mounted) return
                         setAccessToken(valid)
-                        await Promise.all([
-                            loadCurrentTrack(valid),
-                            loadQueue(valid),
-                        ])
+                        await Promise.all([loadCurrentTrack(valid), loadQueue(valid)])
                     }, 5000)
 
                     return
@@ -299,12 +288,9 @@ export function MusicPlayer() {
 
             const incomingTrackId = state.track.id
             const trackChanged =
-                typeof incomingTrackId === "string" &&
-                incomingTrackId !== lastTrackIdRef.current
+                typeof incomingTrackId === "string" && incomingTrackId !== lastTrackIdRef.current
 
-            setCurrentTrack(
-                mapSpotifyTrackToTrack(state.track, state.progress_ms)
-            )
+            setCurrentTrack(mapSpotifyTrackToTrack(state.track, state.progress_ms))
             setIsPlaying(state.is_playing)
             setDeviceName(state.device?.name || "Device")
             if (typeof state.shuffle_state === "boolean") {
@@ -317,8 +303,7 @@ export function MusicPlayer() {
             const serverMs = Math.max(0, Math.floor(state.progress_ms))
             const predictedMs =
                 isPlayingRef.current && progressSyncAtRef.current
-                    ? progressBaseRef.current +
-                      (now - progressSyncAtRef.current)
+                    ? progressBaseRef.current + (now - progressSyncAtRef.current)
                     : serverMs
 
             const closeEnough = Math.abs(serverMs - predictedMs) <= 1200
@@ -367,22 +352,20 @@ export function MusicPlayer() {
 
     const waveBgUrls = useMemo(() => {
         const rgb = parseColorToRgb(accentColor)
-        const highlightA = rgb
-            ? lightenRgb(rgb, 0.42)
-            : { r: 255, g: 255, b: 255 }
-        const highlightB = rgb
-            ? lightenRgb(rgb, 0.22)
-            : { r: 240, g: 240, b: 240 }
+        const highlightA = rgb ? lightenRgb(rgb, 0.42) : { r: 255, g: 255, b: 255 }
+        const highlightB = rgb ? lightenRgb(rgb, 0.22) : { r: 240, g: 240, b: 240 }
 
         return {
-            wave1: makeWaveDataUrl(
-                `rgb(${highlightA.r}, ${highlightA.g}, ${highlightA.b})`,
-                { amplitude: 7, opacity: 0.6, period: 125 }
-            ),
-            wave2: makeWaveDataUrl(
-                `rgb(${highlightB.r}, ${highlightB.g}, ${highlightB.b})`,
-                { amplitude: 5, opacity: 0.5, period: 100 }
-            ),
+            wave1: makeWaveDataUrl(`rgb(${highlightA.r}, ${highlightA.g}, ${highlightA.b})`, {
+                amplitude: 7,
+                opacity: 0.6,
+                period: 125,
+            }),
+            wave2: makeWaveDataUrl(`rgb(${highlightB.r}, ${highlightB.g}, ${highlightB.b})`, {
+                amplitude: 5,
+                opacity: 0.5,
+                period: 100,
+            }),
         }
     }, [accentColor])
 
@@ -405,10 +388,7 @@ export function MusicPlayer() {
             }
 
             const next = progressBaseMs + (Date.now() - progressSyncAt)
-            const clamped = Math.min(
-                currentTrack.duration,
-                Math.max(0, Math.floor(next))
-            )
+            const clamped = Math.min(currentTrack.duration, Math.max(0, Math.floor(next)))
             setDisplayProgressMs(clamped)
         }
 
@@ -473,11 +453,7 @@ export function MusicPlayer() {
     const handleRepeat = async () => {
         if (!accessToken) return
         const nextMode =
-            repeatMode === "off"
-                ? "context"
-                : repeatMode === "context"
-                ? "track"
-                : "off"
+            repeatMode === "off" ? "context" : repeatMode === "context" ? "track" : "off"
         const ok = await setRepeatMode(accessToken, nextMode)
         if (ok) setRepeatModeState(nextMode)
     }
@@ -523,10 +499,7 @@ export function MusicPlayer() {
 
     const updateSeekPreviewFromClientX = (clientX: number, rect: DOMRect) => {
         if (!currentTrack) return 0
-        const ratio = Math.min(
-            1,
-            Math.max(0, (clientX - rect.left) / rect.width)
-        )
+        const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
         const pos = Math.round(ratio * currentTrack.duration)
         setDisplayProgressMs(pos)
         setProgressBaseMs(pos)
@@ -573,9 +546,7 @@ export function MusicPlayer() {
                         <div className="absolute inset-0 bg-black/35" />
                         <div className="absolute left-[36px] top-[28px] flex items-center gap-3 text-white">
                             <FaSpotify className="w-7 h-7" />
-                            <div className="text-[12px] font-bold">
-                                최근 재생
-                            </div>
+                            <div className="text-[12px] font-bold">최근 재생</div>
                         </div>
                         <div className="absolute left-[36px] top-[86px]">
                             <div className="text-white text-[36px] font-normal leading-none">
@@ -594,11 +565,22 @@ export function MusicPlayer() {
                         >
                             <FaPlay className="w-[30px] h-[30px] mx-auto text-black" />
                         </button>
+                        {accessToken ? (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    logoutSpotify()
+                                    setAccessToken(null)
+                                }}
+                                className="absolute top-[30px] right-[50px] text-white text-[12px] font-bold opacity-70"
+                                aria-label="Logout"
+                            >
+                                로그아웃
+                            </button>
+                        ) : null}
                     </div>
                 ) : (
-                    <div className="text-white/60 text-lg">
-                        음악 재생 중이 아닙니다
-                    </div>
+                    <div className="text-white/60 text-lg">음악 재생 중이 아닙니다</div>
                 )}
             </div>
         )
@@ -641,9 +623,7 @@ export function MusicPlayer() {
                     <div className="absolute inset-0 bg-black/25" />
                     <div className="absolute left-[50px] top-[30px] flex items-center gap-1 text-white">
                         <FaSpotify className="w-5 h-5" />
-                        <div className="text-[12px] font-bold">
-                            {deviceName}
-                        </div>
+                        <div className="text-[12px] font-bold">{deviceName}</div>
                     </div>
                     <div className="absolute left-[48px] top-[90px] w-[760px]">
                         <div
@@ -652,29 +632,17 @@ export function MusicPlayer() {
                         >
                             {titleMarqueeOn ? (
                                 <div className="marquee">
-                                    <div
-                                        ref={titleMarqueeInnerRef}
-                                        className="marquee__inner"
-                                    >
-                                        <div
-                                            ref={titleMeasureRef}
-                                            className="marquee__block"
-                                        >
+                                    <div ref={titleMarqueeInnerRef} className="marquee__inner">
+                                        <div ref={titleMeasureRef} className="marquee__block">
                                             {currentTrack.title}
                                         </div>
-                                        <div
-                                            className="marquee__block"
-                                            aria-hidden="true"
-                                        >
+                                        <div className="marquee__block" aria-hidden="true">
                                             {currentTrack.title}
                                         </div>
                                     </div>
                                 </div>
                             ) : (
-                                <div
-                                    ref={titleMeasureRef}
-                                    className="whitespace-nowrap"
-                                >
+                                <div ref={titleMeasureRef} className="whitespace-nowrap">
                                     {currentTrack.title}
                                 </div>
                             )}
@@ -748,16 +716,12 @@ export function MusicPlayer() {
                                 if (e.pointerType === "mouse") {
                                     e.stopPropagation()
                                     e.preventDefault()
-                                    ;(
-                                        e.currentTarget as HTMLDivElement
-                                    ).setPointerCapture(e.pointerId)
-                                    setIsSeeking(true)
-                                    const rect =
-                                        e.currentTarget.getBoundingClientRect()
-                                    const pos = updateSeekPreviewFromClientX(
-                                        e.clientX,
-                                        rect
+                                    ;(e.currentTarget as HTMLDivElement).setPointerCapture(
+                                        e.pointerId
                                     )
+                                    setIsSeeking(true)
+                                    const rect = e.currentTarget.getBoundingClientRect()
+                                    const pos = updateSeekPreviewFromClientX(e.clientX, rect)
                                     seekCommittedPosRef.current = pos
                                 } else {
                                     seekStartXRef.current = e.clientX
@@ -771,61 +735,38 @@ export function MusicPlayer() {
                                     e.stopPropagation()
                                     if (!isSeeking) return
                                     e.preventDefault()
-                                    const rect =
-                                        e.currentTarget.getBoundingClientRect()
-                                    updateSeekPreviewFromClientX(
-                                        e.clientX,
-                                        rect
-                                    )
+                                    const rect = e.currentTarget.getBoundingClientRect()
+                                    updateSeekPreviewFromClientX(e.clientX, rect)
                                 } else {
                                     if (seekStartXRef.current === null) return
 
                                     const dx = e.clientX - seekStartXRef.current
-                                    const dy =
-                                        e.clientY - (seekStartYRef.current ?? 0)
+                                    const dy = e.clientY - (seekStartYRef.current ?? 0)
                                     const absDx = Math.abs(dx)
                                     const absDy = Math.abs(dy)
 
                                     const INTENT_PX = 10
                                     const DOMINANCE = 1.2
 
-                                    if (
-                                        seekGestureLockRef.current ===
-                                        "undecided"
-                                    ) {
-                                        if (
-                                            absDx > INTENT_PX &&
-                                            absDx > absDy * DOMINANCE
-                                        ) {
-                                            seekGestureLockRef.current =
-                                                "horizontal"
+                                    if (seekGestureLockRef.current === "undecided") {
+                                        if (absDx > INTENT_PX && absDx > absDy * DOMINANCE) {
+                                            seekGestureLockRef.current = "horizontal"
                                             setIsSeeking(true)
                                             e.stopPropagation()
                                             if (e.cancelable) e.preventDefault()
-                                            ;(
-                                                e.currentTarget as HTMLDivElement
-                                            ).setPointerCapture(e.pointerId)
-                                        } else if (
-                                            absDy > INTENT_PX &&
-                                            absDy > absDx * DOMINANCE
-                                        ) {
-                                            seekGestureLockRef.current =
-                                                "vertical"
+                                            ;(e.currentTarget as HTMLDivElement).setPointerCapture(
+                                                e.pointerId
+                                            )
+                                        } else if (absDy > INTENT_PX && absDy > absDx * DOMINANCE) {
+                                            seekGestureLockRef.current = "vertical"
                                         }
                                     }
 
-                                    if (
-                                        seekGestureLockRef.current ===
-                                        "horizontal"
-                                    ) {
+                                    if (seekGestureLockRef.current === "horizontal") {
                                         e.stopPropagation()
                                         if (e.cancelable) e.preventDefault()
-                                        const rect =
-                                            e.currentTarget.getBoundingClientRect()
-                                        updateSeekPreviewFromClientX(
-                                            e.clientX,
-                                            rect
-                                        )
+                                        const rect = e.currentTarget.getBoundingClientRect()
+                                        updateSeekPreviewFromClientX(e.clientX, rect)
                                     }
                                 }
                             }}
@@ -834,58 +775,38 @@ export function MusicPlayer() {
                                     e.stopPropagation()
                                     if (!isSeeking) return
                                     e.preventDefault()
-                                    const rect =
-                                        e.currentTarget.getBoundingClientRect()
-                                    const pos = updateSeekPreviewFromClientX(
-                                        e.clientX,
-                                        rect
-                                    )
+                                    const rect = e.currentTarget.getBoundingClientRect()
+                                    const pos = updateSeekPreviewFromClientX(e.clientX, rect)
                                     setIsSeeking(false)
                                     void handleSeekCommit(pos)
                                     seekCommittedPosRef.current = null
                                 } else {
-                                    const rect =
-                                        e.currentTarget.getBoundingClientRect()
+                                    const rect = e.currentTarget.getBoundingClientRect()
 
-                                    if (
-                                        seekGestureLockRef.current ===
-                                        "horizontal"
-                                    ) {
+                                    if (seekGestureLockRef.current === "horizontal") {
                                         e.stopPropagation()
                                         if (e.cancelable) e.preventDefault()
-                                        const pos =
-                                            updateSeekPreviewFromClientX(
-                                                e.clientX,
-                                                rect
-                                            )
+                                        const pos = updateSeekPreviewFromClientX(e.clientX, rect)
                                         setIsSeeking(false)
                                         void handleSeekCommit(pos)
                                     } else {
                                         if (
                                             seekStartXRef.current !== null &&
-                                            seekGestureLockRef.current !==
-                                                "vertical"
+                                            seekGestureLockRef.current !== "vertical"
                                         ) {
-                                            const dx =
-                                                e.clientX -
-                                                seekStartXRef.current
-                                            const dy =
-                                                e.clientY -
-                                                (seekStartYRef.current ?? 0)
-                                            const dt =
-                                                Date.now() -
-                                                (seekStartTimeRef.current ?? 0)
+                                            const dx = e.clientX - seekStartXRef.current
+                                            const dy = e.clientY - (seekStartYRef.current ?? 0)
+                                            const dt = Date.now() - (seekStartTimeRef.current ?? 0)
 
                                             if (
                                                 dt < 250 &&
                                                 Math.abs(dx) < 10 &&
                                                 Math.abs(dy) < 10
                                             ) {
-                                                const pos =
-                                                    updateSeekPreviewFromClientX(
-                                                        e.clientX,
-                                                        rect
-                                                    )
+                                                const pos = updateSeekPreviewFromClientX(
+                                                    e.clientX,
+                                                    rect
+                                                )
                                                 void handleSeekCommit(pos)
                                             }
                                         }
@@ -1010,9 +931,7 @@ export function MusicPlayer() {
                                     className="flex items-center cursor-pointer"
                                     role="button"
                                     aria-label={`Play ${t.title}`}
-                                    onClick={() =>
-                                        void handlePlayQueueItem(t.uri)
-                                    }
+                                    onClick={() => void handlePlayQueueItem(t.uri)}
                                 >
                                     <div className="w-[70px] h-[70px] rounded-[5px] overflow-hidden bg-white/30 shrink-0">
                                         {t.coverUrl ? (
@@ -1101,14 +1020,9 @@ function buildWavePath(opts: {
     return d
 }
 
-function parseColorToRgb(
-    color: string
-): { r: number; g: number; b: number } | null {
+function parseColorToRgb(color: string): { r: number; g: number; b: number } | null {
     const trimmed = color.trim()
-    const rgbMatch =
-        /^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/i.exec(
-            trimmed
-        )
+    const rgbMatch = /^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/i.exec(trimmed)
     if (rgbMatch) {
         return {
             r: clamp255(Number(rgbMatch[1])),
@@ -1145,9 +1059,7 @@ function lightenRgb(
         b: clamp255(rgb.b + (255 - rgb.b) * a),
     }
 }
-export async function extractDominantColor(
-    imageUrl: string
-): Promise<string | null> {
+export async function extractDominantColor(imageUrl: string): Promise<string | null> {
     try {
         try {
             const res = await fetch(imageUrl, {
@@ -1173,9 +1085,7 @@ export async function extractDominantColor(
 
                     if (rgb) {
                         const [r, g, b] = rgb
-                        return `rgb(${Math.round(r)}, ${Math.round(
-                            g
-                        )}, ${Math.round(b)})`
+                        return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`
                     }
                 } finally {
                     URL.revokeObjectURL(objectUrl)
