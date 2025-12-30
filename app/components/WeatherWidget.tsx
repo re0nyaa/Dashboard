@@ -22,6 +22,7 @@ function OWIcon({ icon, size = 150 }: { icon: string; size?: number }) {
 
 export function WeatherWidget() {
     const [data, setData] = useState<WeatherCardData | null>(null)
+    const [showDetail, setShowDetail] = useState(false)
 
     useEffect(() => {
         let cancelled = false
@@ -155,23 +156,28 @@ export function WeatherWidget() {
     }
 
     return (
-        <div className="w-[860px] h-[440px] rounded-[60px] overflow-hidden relative">
-            {/* Background */}
+        <div className="relative w-[860px] h-[440px]">
             <div
-                className="absolute inset-0"
-                style={{
-                    background: `linear-gradient(135deg, ${finalFrom}, ${finalTo})`,
-                }}
-            />
-
-            <div className="relative h-full w-full px-[56px] py-[44px] flex">
-                {/* Left */}
-                <div className="w-[340px] h-full flex flex-col relative">
-                    <div className="absolute -top-[45px] right-[0px]">
+                onClick={() => setShowDetail(true)}
+                className={`
+        absolute inset-0 rounded-[60px] overflow-hidden cursor-pointer
+        transition-opacity duration-200 ease-out
+        ${showDetail ? "opacity-0 pointer-events-none" : "opacity-100"}
+    `}
+            >
+                <div
+                    className="absolute inset-0"
+                    style={{
+                        background: `linear-gradient(135deg, ${finalFrom}, ${finalTo})`,
+                    }}
+                />
+                <div className="relative h-full w-full px-[56px] py-[44px] flex">
+                    {/* Left */}
+                    <div className="absolute top-[10px] right-[10px]">
                         <LargeWeatherIcon iconCode={data?.iconCode} />
                     </div>
 
-                    <div className="flex-1 flex flex-col justify-center">
+                    <div className="mt-[40px] flex-1 flex flex-col justify-center">
                         <div className="text-white text-[96px] font-black leading-none tracking-tight">
                             {temperature}°
                         </div>
@@ -180,53 +186,106 @@ export function WeatherWidget() {
                             {condition}
                         </div>
 
-                        <div className="mt-[34px] text-white/90 text-[28px] font-bold leading-tight">
-                            ↑ {maxTemp}° / ↓ {minTemp}°
+                        <div className="w-[500px] mt-[34px] text-white/90 text-[30px] font-bold leading-tight">
+                            {getWeatherDescription({
+                                condition,
+                                temperature,
+                                feelsLike,
+                                minTemp,
+                                maxTemp,
+                                iconCode: data?.iconCode,
+                            })}
                         </div>
-
-                        <div className="text-white/90 text-[28px] font-bold leading-tight">
-                            체감온도 {feelsLike}°
+                        <div className="text-gray-300 text-[18px] font-bold leading-tight flex items-center gap-2 mt-auto">
+                            <FaLocationDot />
+                            {location}
                         </div>
-                    </div>
-
-                    <div className="text-gray-300 text-[18px] font-bold leading-tight flex items-center gap-2 mt-auto">
-                        <FaLocationDot />
-                        {location}
                     </div>
                 </div>
-
-                {/* Right */}
-                <div className="flex-1 pl-[40px] flex flex-col justify-center">
-                    {forecast.length === 0 ? (
-                        <div className="text-white/90 text-[28px] font-bold">
-                            날씨 정보를 불러오는 중...
+            </div>
+            <div
+                onClick={() => setShowDetail(false)}
+                className={`
+        absolute inset-0 rounded-[60px] overflow-hidden cursor-pointer
+        transition-all duration-250 ease-out
+        ${
+            showDetail
+                ? "opacity-100 translate-y-0"
+                : "opacity-0 translate-y-[4px] pointer-events-none"
+        }
+    `}
+            >
+                {/* Background */}
+                <div
+                    className="absolute inset-0"
+                    style={{
+                        background: `linear-gradient(135deg, ${finalFrom}, ${finalTo})`,
+                    }}
+                />
+                <div className="relative h-full w-full px-[56px] py-[44px] flex">
+                    {/* Left */}
+                    <div className="w-[340px] h-full flex flex-col relative">
+                        <div className="absolute -top-[45px] right-[0px]">
+                            <LargeWeatherIcon iconCode={data?.iconCode} />
                         </div>
-                    ) : (
-                        forecast.map((f, idx) => (
-                            <div key={`${f.date}-${idx}`}>
-                                <div className="grid grid-cols-[110px_100px_1fr] items-center py-[22px]">
-                                    <div className="text-white text-[34px] font-black">
-                                        {f.weekday}
-                                    </div>
 
-                                    <div className="flex justify-center">
-                                        <SmallWeatherIcon iconCode={f.iconCodeAM} />
-                                        <SmallWeatherIcon iconCode={f.iconCodePM} />
-                                    </div>
-
-                                    <div className="text-right text-white text-[34px] font-bold pr-[12px] flex flex-col items-end">
-                                        <span>
-                                            {f.maxTemp}° {f.minTemp}°
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {idx !== forecast.length - 1 && (
-                                    <div className="h-[2px] bg-white/45" />
-                                )}
+                        <div className="flex-1 flex flex-col justify-center">
+                            <div className="text-white text-[96px] font-black leading-none tracking-tight">
+                                {temperature}°
                             </div>
-                        ))
-                    )}
+
+                            <div className="mt-[6px] text-white/95 text-[46px] font-black leading-none">
+                                {condition}
+                            </div>
+
+                            <div className="mt-[34px] text-white/90 text-[28px] font-bold leading-tight">
+                                ↑ {maxTemp}° / ↓ {minTemp}°
+                            </div>
+
+                            <div className="text-white/90 text-[28px] font-bold leading-tight">
+                                체감온도 {feelsLike}°
+                            </div>
+                        </div>
+
+                        <div className="text-gray-300 text-[18px] font-bold leading-tight flex items-center gap-2 mt-auto">
+                            <FaLocationDot />
+                            {location}
+                        </div>
+                    </div>
+
+                    {/* Right */}
+                    <div className="flex-1 pl-[40px] flex flex-col justify-center">
+                        {forecast.length === 0 ? (
+                            <div className="text-white/90 text-[28px] font-bold">
+                                날씨 정보를 불러오는 중...
+                            </div>
+                        ) : (
+                            forecast.map((f, idx) => (
+                                <div key={`${f.date}-${idx}`}>
+                                    <div className="grid grid-cols-[110px_100px_1fr] items-center py-[22px]">
+                                        <div className="text-white text-[34px] font-black">
+                                            {f.weekday}
+                                        </div>
+
+                                        <div className="flex justify-center">
+                                            <SmallWeatherIcon iconCode={f.iconCodeAM} />
+                                            <SmallWeatherIcon iconCode={f.iconCodePM} />
+                                        </div>
+
+                                        <div className="text-right text-white text-[34px] font-bold pr-[12px] flex flex-col items-end">
+                                            <span>
+                                                {f.maxTemp}° {f.minTemp}°
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {idx !== forecast.length - 1 && (
+                                        <div className="h-[2px] bg-white/45" />
+                                    )}
+                                </div>
+                            ))
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
@@ -307,4 +366,54 @@ function hslToHex(h: number, s: number, l: number) {
             .padStart(2, "0")
 
     return `#${toHex(r)}${toHex(g)}${toHex(b)}`
+}
+function getWeatherDescription({
+    condition,
+    temperature,
+    feelsLike,
+    minTemp,
+    maxTemp,
+    iconCode,
+}: {
+    condition: string
+    temperature: number
+    feelsLike: number
+    minTemp: number
+    maxTemp: number
+    iconCode?: string
+}): string {
+    // 시간대 판별 (오전/오후/밤)
+    const hour = new Date().getHours()
+    const isNight = iconCode?.endsWith("n") || hour < 6 || hour >= 20
+    // 온도 범주
+    let tempDesc = ""
+    if (feelsLike >= 28) tempDesc = "무더운"
+    else if (feelsLike >= 23) tempDesc = "따뜻한"
+    else if (feelsLike >= 17) tempDesc = "선선한"
+    else if (feelsLike >= 10) tempDesc = "쌀쌀한"
+    else tempDesc = "추운"
+
+    // 날씨별 문장
+    switch (condition) {
+        case "맑음":
+            return isNight
+                ? `오늘 밤은 하늘이 맑고 ${tempDesc} 밤이에요.`
+                : `오늘은 하늘이 맑고 ${tempDesc} 날씨예요.`
+        case "흐림":
+        case "구름 많음":
+        case "구름 약간":
+            return isNight
+                ? `오늘 밤은 구름이 많고 ${tempDesc} 밤이에요.`
+                : `오늘은 구름이 많고 ${tempDesc} 날씨예요.`
+        case "비":
+            return `오늘은 비가 내리니 우산을 챙기세요.`
+        case "눈":
+            return `오늘은 눈이 내려 길이 미끄러울 수 있어요.`
+        case "뇌우":
+            return `오늘은 천둥번개가 칠 수 있으니 실내 활동을 추천해요.`
+        case "안개":
+            return `오늘은 안개가 껴서 가시거리가 짧아요. 운전 시 주의하세요.`
+        default:
+            return `오늘의 날씨는 ${condition}입니다.`
+    }
 }

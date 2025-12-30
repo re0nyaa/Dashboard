@@ -21,10 +21,7 @@ function getClientId(): string {
 }
 
 function getRedirectUri(): string {
-    return (
-        // import.meta.env.VITE_SPOTIFY_REDIRECT_URI ||
-        window.location.origin + "/callback"
-    )
+    return import.meta.env.VITE_SPOTIFY_REDIRECT_URI || window.location.origin + "/callback"
 }
 
 function base64UrlEncode(bytes: ArrayBuffer) {
@@ -40,8 +37,7 @@ async function sha256(value: string): Promise<ArrayBuffer> {
 }
 
 function randomString(len = 64) {
-    const alphabet =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
     const bytes = new Uint8Array(len)
     crypto.getRandomValues(bytes)
     let out = ""
@@ -126,9 +122,7 @@ async function exchangeCodeForToken(code: string): Promise<TokenResponse> {
     return (await res.json()) as TokenResponse
 }
 
-async function refreshAccessToken(
-    refreshToken: string
-): Promise<TokenResponse> {
+async function refreshAccessToken(refreshToken: string): Promise<TokenResponse> {
     const clientId = getClientId()
     const res = await fetch("https://accounts.spotify.com/api/token", {
         method: "POST",

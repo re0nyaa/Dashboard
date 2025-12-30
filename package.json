@@ -3,17 +3,23 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "build": "react-router build",
-        "dev": "react-router dev --host",
+        "build": "vite build",
+        "dev": "vite dev --host",
+        "tauri:dev": "tauri dev",
+        "tauri:build": "vite build && tauri build",
         "start": "react-router-serve ./build/server/index.js",
-        "typecheck": "react-router typegen && tsc"
+        "typecheck": "react-router typegen && tsc",
+        "tauri": "tauri"
     },
     "dependencies": {
         "@react-router/node": "7.10.1",
         "@react-router/serve": "7.10.1",
+        "@tauri-apps/api": "^2",
+        "@tauri-apps/plugin-opener": "^2",
         "dotenv": "^17.2.3",
         "fast-xml-parser": "^5.3.3",
         "framer-motion": "^12.23.26",
+        "he": "^1.2.0",
         "isbot": "^5.1.31",
         "node-ical": "^0.22.1",
         "node-vibrant": "^4.0.3",
@@ -26,6 +32,8 @@
     "devDependencies": {
         "@react-router/dev": "7.10.1",
         "@tailwindcss/vite": "^4.1.13",
+        "@tauri-apps/cli": "^2",
+        "@types/he": "^1.2.3",
         "@types/node": "^22",
         "@types/qrcode": "^1.5.6",
         "@types/react": "^19.2.7",
