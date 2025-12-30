@@ -89,35 +89,62 @@ export default function Home() {
     const goNext = () => setActiveWidget((prev) => (prev + 1) % widgetCount)
     const goPrev = () => setActiveWidget((prev) => (prev - 1 + widgetCount) % widgetCount)
 
+    // 카드 스와이프: 포인터
     const onPointerDown: React.PointerEventHandler<HTMLDivElement> = (e) => {
         swipeStartXRef.current = e.clientX
         swipeStartYRef.current = e.clientY
         swipeStartTimeRef.current = Date.now()
     }
-
-    const onPointerUp: React.PointerEventHandler<HTMLDivElement> = (e) => {
+    const onPointerMove: React.PointerEventHandler<HTMLDivElement> = (e) => {
         if (swipeLockRef.current) return
-
         const sx = swipeStartXRef.current
         const sy = swipeStartYRef.current
-        const st = swipeStartTimeRef.current
-        if (sx == null || sy == null || st == null) return
-
+        if (sx == null || sy == null) return
         const dx = e.clientX - sx
         const dy = e.clientY - sy
-        const dt = Date.now() - st
-
+        if (Math.abs(dx) > 70 && Math.abs(dy) < Math.abs(dx) * 0.6) {
+            swipeLockRef.current = true
+            dx < 0 ? goNext() : goPrev()
+            swipeStartXRef.current = null
+            swipeStartYRef.current = null
+            swipeStartTimeRef.current = null
+            setTimeout(() => (swipeLockRef.current = false), 500)
+        }
+    }
+    const onPointerUp: React.PointerEventHandler<HTMLDivElement> = (e) => {
         swipeStartXRef.current = null
         swipeStartYRef.current = null
         swipeStartTimeRef.current = null
+    }
 
-        if (dt > 900) return
-        if (Math.abs(dx) < 70) return
-        if (Math.abs(dy) > Math.abs(dx) * 0.6) return
-
-        swipeLockRef.current = true
-        dx < 0 ? goNext() : goPrev()
-        setTimeout(() => (swipeLockRef.current = false), 500)
+    // 카드 스와이프: 터치
+    const onTouchStart: React.TouchEventHandler<HTMLDivElement> = (e) => {
+        const t = e.touches[0]
+        swipeStartXRef.current = t.clientX
+        swipeStartYRef.current = t.clientY
+        swipeStartTimeRef.current = Date.now()
+    }
+    const onTouchMove: React.TouchEventHandler<HTMLDivElement> = (e) => {
+        if (swipeLockRef.current) return
+        const t = e.touches[0]
+        const sx = swipeStartXRef.current
+        const sy = swipeStartYRef.current
+        if (sx == null || sy == null) return
+        const dx = t.clientX - sx
+        const dy = t.clientY - sy
+        if (Math.abs(dx) > 70 && Math.abs(dy) < Math.abs(dx) * 0.6) {
+            swipeLockRef.current = true
+            dx < 0 ? goNext() : goPrev()
+            swipeStartXRef.current = null
+            swipeStartYRef.current = null
+            swipeStartTimeRef.current = null
+            setTimeout(() => (swipeLockRef.current = false), 500)
+        }
+    }
+    const onTouchEnd: React.TouchEventHandler<HTMLDivElement> = () => {
+        swipeStartXRef.current = null
+        swipeStartYRef.current = null
+        swipeStartTimeRef.current = null
     }
 
     /* =========================
@@ -162,7 +189,11 @@ export default function Home() {
                 <div
                     className="absolute top-[50px] left-[1010px] w-[860px] h-[440px]"
                     onPointerDown={onPointerDown}
+                    onPointerMove={onPointerMove}
                     onPointerUp={onPointerUp}
+                    onTouchStart={onTouchStart}
+                    onTouchMove={onTouchMove}
+                    onTouchEnd={onTouchEnd}
                 >
                     <AnimatePresence mode="wait">
                         <motion.div
