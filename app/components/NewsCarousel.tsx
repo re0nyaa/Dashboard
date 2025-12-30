@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { fetchNews, type NewsItem } from "../utils/rss"
 import { AnimatePresence, motion } from "framer-motion"
 import { toDataURL } from "qrcode"
-import { data } from "react-router"
 
 export function NewsCarousel() {
     const [news, setNews] = useState<NewsItem[]>([])
@@ -157,11 +156,11 @@ export function NewsCarousel() {
                         {currentNews.title}
                     </h2>
 
-                    <p className="mt-[30px] text-zinc-800 text-[30px] leading-[1.18] line-clamp-3 pr-[230px]">
+                    <p className="mt-[30px] text-zinc-800 text-[30px] leading-[1.18] line-clamp-3 pr-[220px]">
                         {currentNews.description}
                     </p>
 
-                    <p className="mt-[30px] text-gray-500 text-[20px]">
+                    <p className="mt-[60px] text-gray-500 text-[20px]">
                         {new Date(currentNews.pubDate.toString()).toLocaleString("ko-KR", {
                             year: "numeric",
                             month: "2-digit",
@@ -172,7 +171,7 @@ export function NewsCarousel() {
                     </p>
                     <div className="absolute right-[56px] bottom-[44px] w-[170px] h-[170px] rounded-[18px] bg-white flex items-center justify-center">
                         {currentQr ? (
-                            <img src={currentQr} alt="QR" className="w-[120px] h-[1200px]" />
+                            <img src={currentQr} alt="QR" className="w-[140px] h-[140px]" />
                         ) : (
                             <div className="text-zinc-500 text-sm">QR 생성중</div>
                         )}
