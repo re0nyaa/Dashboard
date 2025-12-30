@@ -140,14 +140,12 @@ export default function Home() {
         const dx = e.clientX - startX
         const dy = e.clientY - startY
         const dt = Date.now() - startTime
-        // 패널 닫기: 패널이 열려있고, 패널 내에서 왼쪽으로 스와이프
         if (sidePanelOpen && startX < 340 && dx < -60 && Math.abs(dy) < 80) {
             setSidePanelOpen(false)
             return
         }
         handleSwipe(dx, dy, dt, startedInScrollable)
     }
-    // 터치 이벤트도 동일하게 적용
     const onTouchStart: React.TouchEventHandler<HTMLDivElement> = (e) => {
         const touch = e.touches[0]
         if (!sidePanelOpen && touch.clientX < 30) {
@@ -215,7 +213,6 @@ export default function Home() {
                     onPointerMove={edgePointerMove}
                     onPointerUp={edgePointerUp}
                 />
-                {/* 하단 패널 오버레이 */}
                 {sidePanelOpen && (
                     <div
                         className="fixed inset-0 z-40 bg-black/40"

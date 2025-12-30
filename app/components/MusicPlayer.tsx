@@ -520,7 +520,11 @@ export function MusicPlayer() {
             <div className="w-[860px] h-[440px] bg-[#4b4b4b] rounded-[30px] flex items-center justify-center">
                 <button
                     type="button"
-                    onClick={() => void startSpotifyLogin()}
+                    onClick={() => {
+                        logoutSpotify()
+                        setAccessToken(null)
+                        startSpotifyLogin()
+                    }}
                     className="flex items-center gap-4 px-10 py-6 rounded-[24px] bg-[#30D866] text-[#000] text-2xl font-bold"
                 >
                     <FaSpotify className="w-10 h-10" />
