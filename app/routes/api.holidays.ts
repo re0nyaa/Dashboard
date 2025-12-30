@@ -16,9 +16,7 @@ function toInt(value: string | null): number | undefined {
 }
 
 export async function loader({ request }: { request: Request }) {
-    const apiKey =
-        process.env.KOREAN_HOLIDAY_API_KEY ??
-        process.env.VITE_KOREAN_HOLIDAY_API_KEY
+    const apiKey = process.env.KOREAN_HOLIDAY_API_KEY ?? process.env.VITE_KOREAN_HOLIDAY_API_KEY
 
     if (!apiKey) {
         return new Response("Missing KOREAN_HOLIDAY_API_KEY", { status: 500 })
@@ -66,8 +64,7 @@ export async function loader({ request }: { request: Request }) {
             signal: controller.signal,
             headers: {
                 accept: "application/xml, text/xml;q=0.9, */*;q=0.1",
-                "user-agent":
-                    "Mozilla/5.0 (compatible; 29inch-dashboard/1.0; +https://localhost)",
+                "user-agent": "Mozilla/5.0 (compatible; 29inch-dashboard/1.0; +https://localhost)",
             },
         })
 
@@ -92,9 +89,7 @@ export async function loader({ request }: { request: Request }) {
 
         const days = items
             .filter((item: any) => String(item?.isHoliday ?? "").trim() === "Y")
-            .map((item: any) =>
-                Number.parseInt(String(item?.locdate ?? ""), 10)
-            )
+            .map((item: any) => Number.parseInt(String(item?.locdate ?? ""), 10))
             .filter((n: number) => Number.isFinite(n))
 
         holidayCache.set(cacheKey, {

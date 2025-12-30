@@ -77,10 +77,7 @@ export function ScheduleWidget() {
                 const start = new Date(e.start)
                 return Number.isFinite(start.getTime()) && isSameDay(start, now)
             })
-            .sort(
-                (a, b) =>
-                    new Date(a.start).getTime() - new Date(b.start).getTime()
-            )
+            .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
     }, [items, now])
 
     const day = pad2(now.getDate())
@@ -93,9 +90,7 @@ export function ScheduleWidget() {
             <div className="relative h-full w-full px-[56px] py-[44px] flex flex-col">
                 {/* Header */}
                 <div className="flex items-baseline gap-[18px] shrink-0">
-                    <div className="text-white text-[50px] font-black leading-none">
-                        {day}
-                    </div>
+                    <div className="text-white text-[50px] font-black leading-none">{day}</div>
                     <div className="text-white/95 text-[40px] font-black leading-none">
                         {weekday}
                     </div>
@@ -125,8 +120,7 @@ export function ScheduleWidget() {
                                         <div
                                             className="w-[10px] h-[35px] rounded-full shrink-0"
                                             style={{
-                                                backgroundColor:
-                                                    markerColorForItem(e, idx),
+                                                backgroundColor: markerColorForItem(e, idx),
                                             }}
                                         />
                                         <div className="min-w-0">

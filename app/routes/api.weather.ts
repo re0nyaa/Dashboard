@@ -167,7 +167,6 @@ export async function loader({ request }: { request: Request }) {
         })
     }
 
-    // 지명은 느릴 수 있으니 병렬로 시작 + 짧게만 기다림
     const locationPromise = resolveLocationFast(lat, lon, apiKey)
 
     const currentUrl = `${OPENWEATHER_BASE}/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric&lang=kr`
@@ -205,12 +204,10 @@ export async function loader({ request }: { request: Request }) {
         day.min = Math.min(day.min, temp)
         day.max = Math.max(day.max, temp)
 
-        // 00 ~ 12 아이콘
         if (hour <= 12 && !day.iconAM) {
             day.iconAM = iconCode
         }
 
-        // 13 ~ 24 아이콘
         if (hour >= 13 && !day.iconPM) {
             day.iconPM = iconCode
         }

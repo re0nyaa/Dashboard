@@ -1,15 +1,13 @@
 export type ScheduleItem = {
     title: string
-    start: string // ISO
-    end?: string // ISO
+    start: string
+    end?: string
     allDay?: boolean
     sourceId?: string
     color?: string
 }
 
-export async function fetchSchedule(options?: {
-    limit?: number
-}): Promise<ScheduleItem[]> {
+export async function fetchSchedule(options?: { limit?: number }): Promise<ScheduleItem[]> {
     try {
         const url = new URL("/api/schedule", window.location.origin)
         if (options?.limit != null) {

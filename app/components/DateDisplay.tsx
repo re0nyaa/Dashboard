@@ -21,9 +21,5 @@ export function DateDisplay() {
         return `${year}. ${month}. ${day} (${dayOfWeek})`
     }
 
-    return (
-        <div className="text-white text-[40px] font-bold font-['Inter']">
-            {formatDate(date)}
-        </div>
-    )
+    return <div className="text-white text-[40px] font-bold font-['Inter']">{formatDate(date)}</div>
 }

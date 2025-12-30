@@ -1,13 +1,8 @@
-// ---------- types ----------
-
 type RGB = { r: number; g: number; b: number }
-
-// ---------- color parsing ----------
 
 function parseColorToRgb(color: string): RGB | null {
     const v = color.trim()
 
-    // #rgb / #rrggbb / #rrggbbaa
     if (v.startsWith("#")) {
         let c = v.slice(1)
 
@@ -44,8 +39,6 @@ function parseColorToRgb(color: string): RGB | null {
     return null
 }
 
-// ---------- luminance ----------
-
 function srgbToLinear(c: number) {
     c /= 255
     return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
@@ -54,8 +47,6 @@ function srgbToLinear(c: number) {
 function luminance({ r, g, b }: RGB) {
     return 0.2126 * srgbToLinear(r) + 0.7152 * srgbToLinear(g) + 0.0722 * srgbToLinear(b)
 }
-
-// ---------- WCAG ----------
 
 export function getContrastRatio(color1: string, color2: string): number {
     const rgb1 = parseColorToRgb(color1)
@@ -100,8 +91,6 @@ export function getReadableTextColor(
 
     return whiteRatio >= blackRatio ? white : black
 }
-
-// ---------- opacity ----------
 
 export function applyOpacity(color: string, opacity: number): { rgba: string; hex8: string } {
     const rgb = parseColorToRgb(color)

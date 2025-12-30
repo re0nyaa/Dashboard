@@ -8,8 +8,6 @@ export function stripHtml(input: string): string {
         .replace(/<[^>]*>/g, " ")
         .replace(/\s+/g, " ")
         .trim()
-        .replace(/^\([^)]*?=연합뉴스\)\s*[^=]+?(기자|특파원)\s*=\s*/u, "")
-        .trim()
 }
 
 function toArray<T>(value: T | T[] | undefined | null): T[] {
@@ -54,12 +52,7 @@ export async function loader({ request }: { request: Request }) {
 
         const parsed = parser.parse(xmlText) as any
         const channel = parsed?.rss?.channel
-        const itemsRaw = toArray(channel?.item)
-            .filter((item: any) => {
-                const title = String(item?.title ?? "").trim()
-                return title !== "[알림] 연합뉴스 콘텐츠 저작권 고지"
-            })
-            .slice(0, 5)
+        const itemsRaw = toArray(channel?.item).slice(0, 5)
         const items: NewsItem[] = itemsRaw.slice(0, limit).map((item: any) => {
             const title = String(item?.title ?? "").trim()
             const link = String(item?.link ?? "").trim()

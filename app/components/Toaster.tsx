@@ -1,11 +1,4 @@
-import {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useMemo,
-    useState,
-} from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import type { ReactNode } from "react"
 
@@ -19,10 +12,7 @@ interface Toast {
 }
 
 interface ToasterContextValue {
-    pushToast: (
-        message: string,
-        opts?: { kind?: ToastKind; durationMs?: number }
-    ) => void
+    pushToast: (message: string, opts?: { kind?: ToastKind; durationMs?: number }) => void
 }
 
 const ToasterContext = createContext<ToasterContextValue | null>(null)
@@ -44,10 +34,7 @@ export function ToasterProvider({ children }: { children: ReactNode }) {
 
     const pushToast = useCallback(
         (message: string, opts?: { kind?: ToastKind; durationMs?: number }) => {
-            const duration = Math.max(
-                1200,
-                Math.min(10000, opts?.durationMs ?? 2600)
-            )
+            const duration = Math.max(1200, Math.min(10000, opts?.durationMs ?? 2600))
             const kind = opts?.kind ?? "info"
             const id = Date.now() + Math.random()
 
@@ -60,15 +47,9 @@ export function ToasterProvider({ children }: { children: ReactNode }) {
         [removeToast]
     )
 
-    const value = useMemo<ToasterContextValue>(
-        () => ({ pushToast }),
-        [pushToast]
-    )
+    const value = useMemo<ToasterContextValue>(() => ({ pushToast }), [pushToast])
 
-    const palette: Record<
-        ToastKind,
-        { bg: string; border: string; text: string }
-    > = {
+    const palette: Record<ToastKind, { bg: string; border: string; text: string }> = {
         info: {
             bg: "bg-slate-500",
             border: "border-slate-500",

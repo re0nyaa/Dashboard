@@ -54,18 +54,13 @@ export async function getSpotifyAccessToken(
     }
 }
 
-export async function getCurrentlyPlaying(
-    accessToken: string
-): Promise<SpotifyPlayerState | null> {
+export async function getCurrentlyPlaying(accessToken: string): Promise<SpotifyPlayerState | null> {
     try {
-        const response = await fetch(
-            "https://api.spotify.com/v1/me/player/currently-playing",
-            {
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                },
-            }
-        )
+        const response = await fetch("https://api.spotify.com/v1/me/player/currently-playing", {
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+        })
 
         if (response.status === 204 || response.status === 404) {
             return null
@@ -85,9 +80,7 @@ export async function getCurrentlyPlaying(
     }
 }
 
-export async function getPlayerState(
-    accessToken: string
-): Promise<SpotifyPlayerState | null> {
+export async function getPlayerState(accessToken: string): Promise<SpotifyPlayerState | null> {
     try {
         const response = await fetch("https://api.spotify.com/v1/me/player", {
             headers: {
@@ -106,10 +99,7 @@ export async function getPlayerState(
             is_playing: Boolean(data.is_playing),
             progress_ms: Number(data.progress_ms ?? 0),
             device: data.device ?? null,
-            shuffle_state:
-                typeof data.shuffle_state === "boolean"
-                    ? data.shuffle_state
-                    : undefined,
+            shuffle_state: typeof data.shuffle_state === "boolean" ? data.shuffle_state : undefined,
             repeat_state: data.repeat_state,
         }
     } catch (error) {
@@ -118,21 +108,15 @@ export async function getPlayerState(
     }
 }
 
-export async function playPause(
-    accessToken: string,
-    play: boolean
-): Promise<boolean> {
+export async function playPause(accessToken: string, play: boolean): Promise<boolean> {
     try {
         const endpoint = play ? "play" : "pause"
-        const response = await fetch(
-            `https://api.spotify.com/v1/me/player/${endpoint}`,
-            {
-                method: "PUT",
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                },
-            }
-        )
+        const response = await fetch(`https://api.spotify.com/v1/me/player/${endpoint}`, {
+            method: "PUT",
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+        })
 
         return response.ok
     } catch (error) {
@@ -143,15 +127,12 @@ export async function playPause(
 
 export async function skipToNext(accessToken: string): Promise<boolean> {
     try {
-        const response = await fetch(
-            "https://api.spotify.com/v1/me/player/next",
-            {
-                method: "POST",
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                },
-            }
-        )
+        const response = await fetch("https://api.spotify.com/v1/me/player/next", {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+        })
 
         return response.ok
     } catch (error) {
@@ -162,15 +143,12 @@ export async function skipToNext(accessToken: string): Promise<boolean> {
 
 export async function skipToPrevious(accessToken: string): Promise<boolean> {
     try {
-        const response = await fetch(
-            "https://api.spotify.com/v1/me/player/previous",
-            {
-                method: "POST",
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                },
-            }
-        )
+        const response = await fetch("https://api.spotify.com/v1/me/player/previous", {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+        })
 
         return response.ok
     } catch (error) {
@@ -179,10 +157,7 @@ export async function skipToPrevious(accessToken: string): Promise<boolean> {
     }
 }
 
-export async function setShuffle(
-    accessToken: string,
-    enabled: boolean
-): Promise<boolean> {
+export async function setShuffle(accessToken: string, enabled: boolean): Promise<boolean> {
     try {
         const url = new URL("https://api.spotify.com/v1/me/player/shuffle")
         url.searchParams.set("state", enabled ? "true" : "false")
@@ -234,10 +209,7 @@ export async function setRepeatMode(
     }
 }
 
-export async function seekToPosition(
-    accessToken: string,
-    positionMs: number
-): Promise<boolean> {
+export async function seekToPosition(accessToken: string, positionMs: number): Promise<boolean> {
     try {
         const clamped = Math.max(0, Math.floor(positionMs))
         const url = new URL("https://api.spotify.com/v1/me/player/seek")
@@ -257,18 +229,13 @@ export async function seekToPosition(
     }
 }
 
-export async function getQueue(
-    accessToken: string
-): Promise<SpotifyQueueState | null> {
+export async function getQueue(accessToken: string): Promise<SpotifyQueueState | null> {
     try {
-        const response = await fetch(
-            "https://api.spotify.com/v1/me/player/queue",
-            {
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                },
-            }
-        )
+        const response = await fetch("https://api.spotify.com/v1/me/player/queue", {
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+        })
 
         if (!response.ok) {
             return null
@@ -285,13 +252,9 @@ export async function getQueue(
     }
 }
 
-export async function getRecentlyPlayedTrack(
-    accessToken: string
-): Promise<SpotifyTrack | null> {
+export async function getRecentlyPlayedTrack(accessToken: string): Promise<SpotifyTrack | null> {
     try {
-        const url = new URL(
-            "https://api.spotify.com/v1/me/player/recently-played"
-        )
+        const url = new URL("https://api.spotify.com/v1/me/player/recently-played")
         url.searchParams.set("limit", "1")
 
         const response = await fetch(url.toString(), {
@@ -322,17 +285,14 @@ export async function playTrackUris(
             body.position_ms = Math.max(0, Math.floor(positionMs))
         }
 
-        const response = await fetch(
-            "https://api.spotify.com/v1/me/player/play",
-            {
-                method: "PUT",
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                    "content-type": "application/json",
-                },
-                body: JSON.stringify(body),
-            }
-        )
+        const response = await fetch("https://api.spotify.com/v1/me/player/play", {
+            method: "PUT",
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "content-type": "application/json",
+            },
+            body: JSON.stringify(body),
+        })
 
         return response.ok
     } catch (error) {
@@ -341,10 +301,7 @@ export async function playTrackUris(
     }
 }
 
-export async function saveTrackToLibrary(
-    accessToken: string,
-    trackId: string
-): Promise<boolean> {
+export async function saveTrackToLibrary(accessToken: string, trackId: string): Promise<boolean> {
     try {
         const url = new URL("https://api.spotify.com/v1/me/tracks")
         url.searchParams.set("ids", trackId)

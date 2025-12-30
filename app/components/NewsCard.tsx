@@ -9,11 +9,7 @@ export function NewsCard({ title, description, imageUrl }: NewsCardProps) {
         <div className="w-[860px] h-[440px] bg-[#4b4b4b] rounded-[30px] overflow-hidden group hover:bg-[#555] transition-all duration-300 hover:shadow-2xl hover:shadow-white/10">
             <div className="relative h-full flex flex-col p-10">
                 <div className="absolute inset-0 opacity-20 group-hover:opacity-30 transition-opacity duration-300">
-                    <img
-                        src={imageUrl}
-                        alt=""
-                        className="w-full h-full object-cover"
-                    />
+                    <img src={imageUrl} alt="" className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#4b4b4b] via-[#4b4b4b]/50 to-transparent" />
                 </div>
 
