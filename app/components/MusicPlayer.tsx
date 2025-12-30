@@ -372,7 +372,7 @@ export function MusicPlayer() {
     const playlistBgColor = useMemo(() => {
         const rgb = parseColorToRgb(accentColor)
         if (!rgb) return "#b1b1b1"
-        const bg = lightenRgb(rgb, 0.68)
+        const bg = lightenRgb(rgb, 0.2)
         return `rgb(${bg.r}, ${bg.g}, ${bg.b})`
     }, [accentColor])
 
