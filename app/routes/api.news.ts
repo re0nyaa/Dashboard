@@ -1,19 +1,14 @@
 import type { NewsItem } from "../utils/rss"
 import { XMLParser } from "fast-xml-parser"
+import he from "he"
 
-function stripHtml(input: string): string {
-    return input
+export function stripHtml(input: string): string {
+    return he
+        .decode(input)
         .replace(/<[^>]*>/g, " ")
         .replace(/\s+/g, " ")
         .trim()
         .replace(/^\([^)]*?=연합뉴스\)\s*[^=]+?(기자|특파원)\s*=\s*/u, "")
-        .replace(/&apos;/g, "'")
-        .replace(/&quot;/g, '"')
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&amp;/g, "&")
-        .replace(/&#9650;/g, " ")
-        .replace(/&#9660;/g, " ")
         .trim()
 }
 
