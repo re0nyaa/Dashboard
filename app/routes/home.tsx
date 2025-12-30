@@ -18,10 +18,6 @@ export function meta({}: Route.MetaArgs) {
 export default function Home() {
     const [activeWidget, setActiveWidget] = useState(0)
     const [sidePanelOpen, setSidePanelOpen] = useState(false)
-
-    /* =========================
-       하단 엣지 스와이프 (위로)
-    ========================== */
     const [panelDragStartY, setPanelDragStartY] = useState<number | null>(null)
     const [panelDragActive, setPanelDragActive] = useState(false)
 
@@ -67,9 +63,6 @@ export default function Home() {
         setPanelDragStartY(null)
     }
 
-    /* =========================
-       위젯 좌/우 스와이프
-    ========================== */
     const swipeStartXRef = useRef<number | null>(null)
     const swipeStartYRef = useRef<number | null>(null)
     const swipeStartTimeRef = useRef<number | null>(null)
@@ -89,7 +82,6 @@ export default function Home() {
     const goNext = () => setActiveWidget((prev) => (prev + 1) % widgetCount)
     const goPrev = () => setActiveWidget((prev) => (prev - 1 + widgetCount) % widgetCount)
 
-    // 카드 스와이프: 포인터
     const onPointerDown: React.PointerEventHandler<HTMLDivElement> = (e) => {
         swipeStartXRef.current = e.clientX
         swipeStartYRef.current = e.clientY
@@ -117,7 +109,6 @@ export default function Home() {
         swipeStartTimeRef.current = null
     }
 
-    // 카드 스와이프: 터치
     const onTouchStart: React.TouchEventHandler<HTMLDivElement> = (e) => {
         const t = e.touches[0]
         swipeStartXRef.current = t.clientX
@@ -147,13 +138,9 @@ export default function Home() {
         swipeStartTimeRef.current = null
     }
 
-    /* =========================
-       Render
-    ========================== */
     return (
         <div className="min-h-screen bg-black flex items-center justify-center overflow-hidden">
             <div className="w-[1920px] h-[540px] bg-[#1e1e1e] relative overflow-hidden">
-                {/* 하단 엣지 스와이프 영역 */}
                 <div
                     className="absolute left-0 bottom-0 w-full h-[30px] z-[100]"
                     style={{ touchAction: "none" }}
@@ -207,6 +194,15 @@ export default function Home() {
                             {widgets[activeWidget]}
                         </motion.div>
                     </AnimatePresence>
+                </div>
+                <div className="absolute bottom-[20px] left-[1010px] w-[860px] flex justify-center gap-3">
+                    {Array.from({ length: widgetCount }, (_, idx) => idx).map((idx) => (
+                        <button
+                            key={idx}
+                            onClick={() => setActiveWidget(idx)}
+                            className={`w-2 h-2 rounded-full transition-all duration-300 ${activeWidget === idx ? "bg-white w-6" : "bg-white/20 hover:bg-white/40"}`}
+                        />
+                    ))}
                 </div>
             </div>
         </div>
