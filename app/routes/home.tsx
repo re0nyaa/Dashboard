@@ -270,7 +270,7 @@ export default function Home() {
                 >
                     <AnimatePresence mode="wait">
                         <motion.div
-                            ref={(el) => (cardRefs.current[activeWidget] = el)}
+                            ref={(el) => { cardRefs.current[activeWidget] = el; }}
                             key={activeWidget}
                             initial={isMusicWidget ? { opacity: 0 } : { opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
