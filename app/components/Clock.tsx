@@ -126,7 +126,7 @@ export function Clock() {
     useEffect(() => {
         const timer = setInterval(() => {
             setTime(new Date())
-        }, 1000)
+        }, 500)
 
         return () => clearInterval(timer)
     }, [])
