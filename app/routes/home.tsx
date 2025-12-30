@@ -282,15 +282,14 @@ export default function Home() {
                         </motion.div>
                     </AnimatePresence>
 
-                    {/* 편집 모드 오버레이 */}
                     {editMode && editCardStyle && (
                         <div
-                            className="fixed z-1 bg-white shadow-xl rounded-[60px] overflow-hidden"
+                            className="fixed z-1 bg-[#4B4B4B] shadow-xl rounded-[60px] overflow-hidden"
                             style={{
-                                top: editCardStyle.top,
-                                left: editCardStyle.left,
-                                width: editCardStyle.width,
-                                height: editCardStyle.height,
+                                top: "50px",
+                                left: "1010px",
+                                width: "860px",
+                                height: "440px",
                             }}
                         >
                             <div className="flex flex-col items-center p-4 h-full w-full">
@@ -345,7 +344,7 @@ export default function Home() {
                                         ))}
                                 </div>
                                 <button
-                                    className="absolute top-2 right-2 text-gray-600 font-bold"
+                                    className="absolute top-5 right-10 text-white font-bold"
                                     onClick={() => setEditMode(false)}
                                 >
                                     완료
