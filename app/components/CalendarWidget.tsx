@@ -55,10 +55,7 @@ function buildMonthGrid(date: Date): DayCell[] {
     return cells
 }
 
-async function fetchKoreanHolidays(
-    year: number,
-    month: number
-): Promise<HolidaySet> {
+async function fetchKoreanHolidays(year: number, month: number): Promise<HolidaySet> {
     const url = `/api/holidays?year=${year}&month=${month}`
 
     try {
@@ -96,15 +93,7 @@ export function CalendarWidget() {
         fetchKoreanHolidays(year, now.getMonth() + 1).then(setHolidays)
     }, [year, now.getMonth()])
 
-    const weekdayNames = [
-        "일요일",
-        "월요일",
-        "화요일",
-        "수요일",
-        "목요일",
-        "금요일",
-        "토요일",
-    ]
+    const weekdayNames = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"]
 
     const weekday = weekdayNames[now.getDay()]
 
@@ -138,23 +127,16 @@ export function CalendarWidget() {
                             const isSaturday = cell.col === 6
                             const isSelected = cell.inMonth && cell.isToday
 
-                            const yyyymmdd =
-                                year * 10000 +
-                                (now.getMonth() + 1) * 100 +
-                                cell.day
+                            const yyyymmdd = year * 10000 + (now.getMonth() + 1) * 100 + cell.day
 
-                            const isHoliday =
-                                cell.inMonth && holidays.has(yyyymmdd)
+                            const isHoliday = cell.inMonth && holidays.has(yyyymmdd)
 
                             const base =
                                 "w-[50px] h-[50px] rounded-[10px] flex items-center justify-center text-[26px] font-black"
 
                             if (!cell.inMonth) {
                                 return (
-                                    <div
-                                        key={idx}
-                                        className={`${base} bg-white/35 text-black/35`}
-                                    >
+                                    <div key={idx} className={`${base} bg-white/35 text-black/35`}>
                                         {cell.day}
                                     </div>
                                 )
@@ -162,10 +144,7 @@ export function CalendarWidget() {
 
                             if (isSelected) {
                                 return (
-                                    <div
-                                        key={idx}
-                                        className={`${base} bg-[#ff5a5a] text-white`}
-                                    >
+                                    <div key={idx} className={`${base} bg-[#ff5a5a] text-white`}>
                                         {cell.day}
                                     </div>
                                 )
@@ -173,10 +152,7 @@ export function CalendarWidget() {
 
                             if (isHoliday) {
                                 return (
-                                    <div
-                                        key={idx}
-                                        className={`${base} bg-white/70 text-red-500`}
-                                    >
+                                    <div key={idx} className={`${base} bg-white/70 text-red-500`}>
                                         {cell.day}
                                     </div>
                                 )
@@ -185,14 +161,11 @@ export function CalendarWidget() {
                             const weekendColor = isSunday
                                 ? "text-red-500"
                                 : isSaturday
-                                ? "text-blue-500"
-                                : "text-black"
+                                  ? "text-blue-500"
+                                  : "text-black"
 
                             return (
-                                <div
-                                    key={idx}
-                                    className={`${base} bg-white/70 ${weekendColor}`}
-                                >
+                                <div key={idx} className={`${base} bg-white/70 ${weekendColor}`}>
                                     {cell.day}
                                 </div>
                             )
