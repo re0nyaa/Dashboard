@@ -1,19 +1,13 @@
 import { useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import type { Route } from "./+types/home"
-
-import { Clock } from "../components/Clock"
-import { DateDisplay } from "../components/DateDisplay"
-import { NewsCarousel } from "../components/NewsCarousel"
-import { MusicPlayer } from "../components/MusicPlayer"
+import { Clock } from "~/components/Clock"
+import { DateDisplay } from "~/components/DateDisplay"
+import { NewsCarousel } from "~/components/NewsCarousel"
+import { MusicPlayer } from "~/components/MusicPlayer"
 import { CalendarWidget } from "~/components/CalendarWidget"
 import { ScheduleWidget } from "~/components/ScheduleWidget"
 import { WeatherWidget } from "~/components/WeatherWidget"
 import { SettingPanel } from "~/components/SettingPanel"
-
-export function meta({}: Route.MetaArgs) {
-    return [{ title: "Dashboard" }]
-}
 
 export default function Home() {
     const [activeWidget, setActiveWidget] = useState(0)
