@@ -14,6 +14,9 @@ export default function Callback() {
             } catch (e) {
                 if (!active) return
                 setError(e instanceof Error ? e.message : String(e))
+                setTimeout(() => {
+                    navigate("/", { replace: true })
+                }, 5000)
                 return
             }
             if (!active) return
@@ -32,9 +35,7 @@ export default function Callback() {
                 <div className="text-sm text-white/70">
                     이 창은 잠시 후 자동으로 닫히거나 홈으로 이동합니다.
                 </div>
-                {error ? (
-                    <div className="text-red-400 text-sm">{error}</div>
-                ) : null}
+                {error ? <div className="text-red-400 text-sm">{error}</div> : null}
             </div>
         </div>
     )
