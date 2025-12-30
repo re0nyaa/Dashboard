@@ -34,7 +34,7 @@ export function ToasterProvider({ children }: { children: ReactNode }) {
 
     const pushToast = useCallback(
         (message: string, opts?: { kind?: ToastKind; durationMs?: number }) => {
-            const duration = Math.max(1200, Math.min(10000, opts?.durationMs ?? 2600))
+            const duration = Math.max(1200, Math.min(10000, opts?.durationMs ?? 10000))
             const kind = opts?.kind ?? "info"
             const id = Date.now() + Math.random()
 
