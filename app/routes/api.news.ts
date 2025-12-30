@@ -13,6 +13,7 @@ function stripHtml(input: string): string {
         .replace(/&gt;/g, ">")
         .replace(/&amp;/g, "&")
         .replace(/&#9650;/g, " ")
+        .replace(/&#9660;/g, " ")
         .trim()
 }
 
