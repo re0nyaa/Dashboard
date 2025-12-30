@@ -156,12 +156,14 @@ export function WeatherWidget() {
     }
 
     return (
-        <div>
+        <div className="relative w-[860px] h-[440px]">
             <div
                 onClick={() => setShowDetail(true)}
-                className={`w-[860px] h-[440px] rounded-[60px] overflow-hidden relative cursor-pointer ${
-                    showDetail ? "hidden" : ""
-                }`}
+                className={`
+        absolute inset-0 rounded-[60px] overflow-hidden cursor-pointer
+        transition-opacity duration-200 ease-out
+        ${showDetail ? "opacity-0 pointer-events-none" : "opacity-100"}
+    `}
             >
                 <div
                     className="absolute inset-0"
@@ -203,9 +205,15 @@ export function WeatherWidget() {
             </div>
             <div
                 onClick={() => setShowDetail(false)}
-                className={`w-[860px] h-[440px] rounded-[60px] overflow-hidden relative cursor-pointer ${
-                    showDetail ? "" : "hidden"
-                }`}
+                className={`
+        absolute inset-0 rounded-[60px] overflow-hidden cursor-pointer
+        transition-all duration-250 ease-out
+        ${
+            showDetail
+                ? "opacity-100 translate-y-0"
+                : "opacity-0 translate-y-[4px] pointer-events-none"
+        }
+    `}
             >
                 {/* Background */}
                 <div
