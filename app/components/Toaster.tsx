@@ -83,7 +83,7 @@ export function ToasterProvider({ children }: { children: ReactNode }) {
                                 exit={{ opacity: 0, y: 6, scale: 0.98 }}
                                 transition={{ duration: 0.18, ease: "easeOut" }}
                                 className={
-                                    "pointer-events-auto relative w-[320px] rounded-xl border px-4 py-3 shadow-xl backdrop-blur " +
+                                    "pointer-events-auto relative w-full max-w-[320px] rounded-xl border px-4 py-3 shadow-xl backdrop-blur break-words " +
                                     colors.bg +
                                     " " +
                                     colors.border +
@@ -99,7 +99,7 @@ export function ToasterProvider({ children }: { children: ReactNode }) {
                                     ×
                                 </button>
 
-                                <div className="text-sm font-semibold leading-tight pr-6">
+                                <div className="text-sm font-semibold leading-tight pr-6 break-words">
                                     {t.message}
                                 </div>
                             </motion.div>
