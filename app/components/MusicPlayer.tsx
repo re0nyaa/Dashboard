@@ -521,7 +521,7 @@ export function MusicPlayer() {
     const BAR_W = 760
     const KNOB = 22
     const barX = 50
-    const knobLeft = barX + ((BAR_W - KNOB) * safeRatio) / 100
+    const knobLeft = barX + (BAR_W * safeRatio) / 100 - KNOB / 2
     const nextSong = queue[0]
     const listItems = queue.slice(0, 12)
     const nextSongLabel = nextSong ? truncateText(nextSong.title, 30) : "-"
@@ -625,7 +625,7 @@ export function MusicPlayer() {
                         <div
                             className="absolute top-0 h-[24px] w-[24px] rounded-full"
                             style={{
-                                left: `${knobLeft - 5}px`,
+                                left: `${knobLeft}px`,
                             }}
                         >
                             <div
@@ -635,6 +635,7 @@ export function MusicPlayer() {
                                 }}
                             />
                         </div>
+
                         <div
                             className="absolute left-[50px] top-0 h-[22px] w-[760px] cursor-pointer touch-pan-y"
                             style={{
