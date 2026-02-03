@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Clock } from "~/components/Clock"
 import { DateDisplay } from "~/components/DateDisplay"
@@ -10,6 +10,63 @@ import { WeatherWidget } from "~/components/WeatherWidget"
 import { SettingPanel } from "~/components/SettingPanel"
 
 export default function Home() {
+   
+    const BASE_W = 1920
+    const MIN_H = 540
+    const CARD = { top: 50, left: 1010, width: 860, height: 440 }
+
+    const viewportRef = useRef<HTMLDivElement | null>(null)
+    const [baseH, setBaseH] = useState(MIN_H)
+    const [stageScale, setStageScale] = useState(1)
+
+    const vOffset = useMemo(() => Math.max(0, Math.round((baseH - MIN_H) / 2)), [baseH])
+    const clockTop = 60 + vOffset
+    const cardTop = CARD.top + vOffset
+    const indicatorBottom = 20 + vOffset
+
+    useEffect(() => {
+        if (typeof window === "undefined") return
+        const el = viewportRef.current
+        if (!el) return
+
+        const compute = () => {
+            const rect = el.getBoundingClientRect()
+            const vw = Math.max(rect.width, 1)
+            const vh = Math.max(rect.height, 1)
+            const aspect = vw / vh
+
+            const nextBaseH = Math.max(MIN_H, Math.round(BASE_W / aspect))
+            setBaseH(nextBaseH)
+
+            const nextScale = Math.min(vw / BASE_W, vh / nextBaseH)
+            setStageScale(Number.isFinite(nextScale) && nextScale > 0 ? nextScale : 1)
+        }
+
+        compute()
+        const onResize = () => compute()
+        window.addEventListener("resize", onResize)
+        window.addEventListener("orientationchange", onResize)
+
+        let ro: ResizeObserver | null = null
+        if (typeof ResizeObserver !== "undefined") {
+            ro = new ResizeObserver(() => compute())
+            ro.observe(el)
+        }
+
+        return () => {
+            ro?.disconnect()
+            window.removeEventListener("resize", onResize)
+            window.removeEventListener("orientationchange", onResize)
+        }
+    }, [])
+
+    const scaledSize = useMemo(() => {
+        return {
+            width: Math.round(BASE_W * stageScale),
+            height: Math.round(baseH * stageScale),
+        }
+    }, [baseH, stageScale])
+
     const [activeWidget, setActiveWidget] = useState(0)
     const [sidePanelOpen, setSidePanelOpen] = useState(false)
     const [panelDragStartY, setPanelDragStartY] = useState<number | null>(null)
@@ -80,17 +137,13 @@ export default function Home() {
     const handleLongPressStart = (idx: number) => {
         if (editMode || longPressTimer.current) return
         longPressTimer.current = setTimeout(() => {
-            const card = cardRefs.current[idx]
-            if (card) {
-                const rect = card.getBoundingClientRect()
-                setEditCardStyle({
-                    top: rect.top,
-                    left: rect.left,
-                    width: rect.width,
-                    height: rect.height,
-                })
-                setEditMode(true)
-            }
+            setEditCardStyle({
+                top: cardTop,
+                left: CARD.left,
+                width: CARD.width,
+                height: CARD.height,
+            })
+            setEditMode(true)
             clearTimeout(longPressTimer.current!)
             longPressTimer.current = null
         }, LONG_PRESS_MS)
@@ -200,9 +253,21 @@ export default function Home() {
     }
 
     return (
-        <div className="min-h-screen bg-black flex items-center justify-center overflow-hidden">
-            <div className="w-[1920px] h-[540px] bg-[#1e1e1e] relative overflow-hidden">
-                {/* 하단 엣지 스와이프 */}
+        <div className="bg-black overflow-hidden">
+            <div
+                ref={viewportRef}
+                className="w-screen h-[100svh] flex items-center justify-center p-2 overflow-hidden"
+            >
+                <div className="relative" style={{ width: scaledSize.width, height: scaledSize.height }}>
+                    <div
+                        className="bg-[#1e1e1e] relative overflow-hidden"
+                        style={{
+                            width: BASE_W,
+                            height: baseH,
+                            transform: `scale(${stageScale})`,
+                            transformOrigin: "top left",
+                        }}
+                    >
                 <div
                     className="absolute left-0 bottom-0 w-full h-[30px] z-[100]"
                     style={{ touchAction: "none" }}
@@ -214,7 +279,6 @@ export default function Home() {
                     onTouchEnd={edgeTouchEnd}
                 />
 
-                {/* 사이드 패널 배경 */}
                 {sidePanelOpen && (
                     <div
                         className="fixed inset-0 bg-black/40 z-40"
@@ -222,7 +286,6 @@ export default function Home() {
                     />
                 )}
 
-                {/* 사이드 패널 */}
                 <motion.div
                     initial={false}
                     animate={{ y: sidePanelOpen ? 0 : 300 }}
@@ -232,15 +295,23 @@ export default function Home() {
                     <SettingPanel />
                 </motion.div>
 
-                {/* 시계/날짜 */}
-                <div className="absolute top-[60px] left-[35px] flex flex-col gap-[60px]">
+                <div
+                    className="absolute left-[35px] flex flex-col gap-[60px]"
+                    style={{ top: clockTop }}
+                >
                     <Clock />
                     <DateDisplay />
                 </div>
 
                 {/* 위젯 카드 */}
                 <div
-                    className="absolute top-[50px] left-[1010px] w-[860px] h-[440px]"
+                    className="absolute"
+                    style={{
+                        top: cardTop,
+                        left: CARD.left,
+                        width: CARD.width,
+                        height: CARD.height,
+                    }}
                     onPointerDown={(e) => {
                         handleSwipeStart(e.clientX, e.clientY)
                         handleLongPressStart(activeWidget)
@@ -280,12 +351,12 @@ export default function Home() {
 
                     {editMode && editCardStyle && (
                         <div
-                            className="fixed z-1 bg-[#4B4B4B] shadow-xl rounded-[60px] overflow-hidden"
+                            className="absolute z-10 bg-[#4B4B4B] shadow-xl rounded-[60px] overflow-hidden"
                             style={{
-                                top: "50px",
-                                left: "1010px",
-                                width: "860px",
-                                height: "440px",
+                                top: cardTop,
+                                left: CARD.left,
+                                width: CARD.width,
+                                height: CARD.height,
                             }}
                         >
                             <div className="flex flex-col items-center p-4 h-full w-full">
@@ -350,8 +421,10 @@ export default function Home() {
                     )}
                 </div>
 
-                {/* 하단 위젯 인디케이터 */}
-                <div className="absolute bottom-[20px] left-[1010px] w-[860px] flex justify-center gap-3">
+                <div
+                    className="absolute left-[1010px] w-[860px] flex justify-center gap-3"
+                    style={{ bottom: indicatorBottom }}
+                >
                     {Array.from({ length: widgetCount }, (_, idx) => idx).map((idx) => (
                         <button
                             key={idx}
@@ -363,6 +436,8 @@ export default function Home() {
                             }`}
                         />
                     ))}
+                </div>
+                    </div>
                 </div>
             </div>
         </div>
