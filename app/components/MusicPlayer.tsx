@@ -29,6 +29,9 @@ import {
 } from "../utils/spotifyAuth"
 import { useToaster } from "./Toaster"
 import { Vibrant } from "node-vibrant/browser"
+import { oklch, formatRgb } from "culori"
+import type { Oklch } from "culori"
+
 interface Track {
     id?: string
     uri?: string
@@ -309,13 +312,38 @@ export function MusicPlayer() {
             }),
         }
     }, [accentColor])
-    const playlistBgColor = useMemo(() => {
-        const rgb = parseColorToRgb(accentColor)
-        if (!rgb) return "#b1b1b1"
-        const bg = lightenRgb(rgb, 0.2)
-        return `rgb(${bg.r}, ${bg.g}, ${bg.b})`
+    const { playlistGradient, playlistRepresentative } = useMemo(() => {
+        try {
+            const base = oklch(accentColor) as any
+            if (!base || typeof base.l !== "number") throw new Error("invalid base color")
+            const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
+            const a: Oklch = {
+                mode: "oklch",
+                l: clamp01(base.l + 0.06),
+                c: Math.max(0, base.c * 0.9),
+                h: base.h,
+            }
+            const b: Oklch = {
+                mode: "oklch",
+                l: clamp01(base.l + 0.18),
+                c: Math.max(0, base.c * 0.7),
+                h: base.h,
+            }
+            const aRgb = formatRgb(a)
+            const bRgb = formatRgb(b)
+            const grad = `linear-gradient(to bottom right, ${aRgb}, ${bRgb})`
+            return { playlistGradient: grad, playlistRepresentative: aRgb }
+        } catch {
+            const rgb = parseColorToRgb(accentColor)
+            if (!rgb) return { playlistGradient: "#b1b1b1", playlistRepresentative: "#b1b1b1" }
+            const bg = lightenRgb(rgb, 0.2)
+            const col = `rgb(${bg.r}, ${bg.g}, ${bg.b})`
+            return { playlistGradient: col, playlistRepresentative: col }
+        }
     }, [accentColor])
-    const textColor = getReadableTextColor(playlistBgColor)
+
+    //
+    const textColor = getReadableTextColor(playlistRepresentative)
     useEffect(() => {
         if (!currentTrack) return
         if (isSeeking) return
@@ -831,7 +859,8 @@ export function MusicPlayer() {
                 <div
                     className="absolute left-0 top-[375px] w-[860px] h-[400px] rounded-[45px]"
                     style={{
-                        backgroundColor: playlistBgColor,
+                        backgroundImage: playlistGradient,
+                        backgroundColor: playlistRepresentative,
                     }}
                 >
                     <div
