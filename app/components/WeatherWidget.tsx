@@ -292,8 +292,6 @@ export function WeatherWidget() {
     )
 }
 
-/* ---------- Color Utils ---------- */
-
 function hexToHsl(hex: string) {
     hex = hex.replace("#", "")
     if (hex.length === 3) {

@@ -70,7 +70,7 @@ export function ScheduleWidget() {
         }
     }, [])
 
-    // 🔹 오늘 일정만
+    // 오늘 일정만
     const upcoming = useMemo(() => {
         return items
             .filter((e) => {
@@ -88,7 +88,6 @@ export function ScheduleWidget() {
             <div className="absolute inset-0 bg-gradient-to-br from-[#2B2F3A] to-[#1F2430]" />
 
             <div className="relative h-full w-full px-[56px] py-[44px] flex flex-col">
-                {/* Header */}
                 <div className="flex items-baseline gap-[18px] shrink-0">
                     <div className="text-white text-[50px] font-black leading-none">{day}</div>
                     <div className="text-white/95 text-[40px] font-black leading-none">
@@ -96,7 +95,6 @@ export function ScheduleWidget() {
                     </div>
                 </div>
 
-                {/* Scroll Area */}
                 <div
                     className="mt-[26px] flex-1 overflow-y-auto overflow-x-hidden pr-[12px] no-scrollbar touch-pan-y select-none overscroll-x-none"
                     data-disable-widget-swipe="true"
