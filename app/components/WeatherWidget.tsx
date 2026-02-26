@@ -127,6 +127,7 @@ export function WeatherWidget() {
     const maxTemp = data?.maxTemp ?? temperature
     const feelsLike = data?.feelsLike ?? temperature
     const forecast = (data?.forecast ?? []).slice(0, 4)
+    const hourly = data?.hourly ?? []
 
     const gradientMap: Record<string, [string, string]> = {
         맑음: ["#538FFF", "#C7DBFF"],
@@ -174,7 +175,9 @@ export function WeatherWidget() {
                 <div className="relative h-full w-full px-[56px] py-[44px] flex">
                     {/* Left */}
                     <div className="absolute top-[10px] right-[10px]">
-                        <LargeWeatherIcon iconCode={data?.iconCode} />
+                        <div className="animate-[float-slow_5s_ease-in-out_infinite]">
+                            <LargeWeatherIcon iconCode={data?.iconCode} />
+                        </div>
                     </div>
 
                     <div className="mt-[40px] flex-1 flex flex-col justify-center">
@@ -185,20 +188,23 @@ export function WeatherWidget() {
                         <div className="mt-[6px] text-white/95 text-[46px] font-black leading-none">
                             {condition}
                         </div>
-
-                        <div className="w-[500px] mt-[34px] text-white/90 text-[30px] font-bold leading-tight">
-                            {getWeatherDescription({
-                                condition,
-                                temperature,
-                                feelsLike,
-                                minTemp,
-                                maxTemp,
-                                iconCode: data?.iconCode,
-                            })}
-                        </div>
-                        <div className="text-gray-300 text-[18px] font-bold leading-tight flex items-center gap-2 mt-auto">
-                            <FaLocationDot />
+                        <div className="text-gray-300 text-[18px] font-bold flex items-center gap-2">
+                            {/* <FaLocationDot /> */}
                             {location}
+                        </div>
+                        <div className="flex mt-4 items-center">
+                            {hourly.slice(0, 8).map(({ dt, temp, pop, iconCode }, idx) => (
+                                <div key={idx} className="flex flex-col items-center text-center">
+                                    <div className="text-[24px] font-bold ">
+                                        {dt.split(" ")[1].slice(0, 2)}
+                                    </div>
+
+                                    <LargeWeatherIcon iconCode={iconCode} />
+
+                                    <div className="text-[22px] font-bold">{Math.round(temp)}°</div>
+                                    <div className="text-[18px] font-bold text-gray-300">{`${Math.round(pop * 100)}%`}</div>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </div>
@@ -226,7 +232,9 @@ export function WeatherWidget() {
                     {/* Left */}
                     <div className="w-[340px] h-full flex flex-col relative">
                         <div className="absolute -top-[45px] right-[0px]">
-                            <LargeWeatherIcon iconCode={data?.iconCode} />
+                            <div className="animate-[float-slow_5s_ease-in-out_infinite]">
+                                <LargeWeatherIcon iconCode={data?.iconCode} />
+                            </div>{" "}
                         </div>
 
                         <div className="flex-1 flex flex-col justify-center">
@@ -365,53 +373,53 @@ function hslToHex(h: number, s: number, l: number) {
 
     return `#${toHex(r)}${toHex(g)}${toHex(b)}`
 }
-function getWeatherDescription({
-    condition,
-    temperature,
-    feelsLike,
-    minTemp,
-    maxTemp,
-    iconCode,
-}: {
-    condition: string
-    temperature: number
-    feelsLike: number
-    minTemp: number
-    maxTemp: number
-    iconCode?: string
-}): string {
-    // 시간대 판별 (오전/오후/밤)
-    const hour = new Date().getHours()
-    const isNight = iconCode?.endsWith("n") || hour < 6 || hour >= 20
-    // 온도 범주
-    let tempDesc = ""
-    if (feelsLike >= 28) tempDesc = "무더운"
-    else if (feelsLike >= 23) tempDesc = "따뜻한"
-    else if (feelsLike >= 17) tempDesc = "선선한"
-    else if (feelsLike >= 10) tempDesc = "쌀쌀한"
-    else tempDesc = "추운"
+// function getWeatherDescription({
+//     condition,
+//     temperature,
+//     feelsLike,
+//     minTemp,
+//     maxTemp,
+//     iconCode,
+// }: {
+//     condition: string
+//     temperature: number
+//     feelsLike: number
+//     minTemp: number
+//     maxTemp: number
+//     iconCode?: string
+// }): string {
+//     // 시간대 판별 (오전/오후/밤)
+//     const hour = new Date().getHours()
+//     const isNight = iconCode?.endsWith("n") || hour < 6 || hour >= 20
+//     // 온도 범주
+//     let tempDesc = ""
+//     if (feelsLike >= 28) tempDesc = "무더운"
+//     else if (feelsLike >= 23) tempDesc = "따뜻한"
+//     else if (feelsLike >= 17) tempDesc = "선선한"
+//     else if (feelsLike >= 10) tempDesc = "쌀쌀한"
+//     else tempDesc = "추운"
 
-    // 날씨별 문장
-    switch (condition) {
-        case "맑음":
-            return isNight
-                ? `오늘 밤은 하늘이 맑고 ${tempDesc} 밤이에요.`
-                : `오늘은 하늘이 맑고 ${tempDesc} 날씨예요.`
-        case "흐림":
-        case "구름 많음":
-        case "구름 약간":
-            return isNight
-                ? `오늘 밤은 구름이 많고 ${tempDesc} 밤이에요.`
-                : `오늘은 구름이 많고 ${tempDesc} 날씨예요.`
-        case "비":
-            return `오늘은 비가 내리니 우산을 챙기세요.`
-        case "눈":
-            return `오늘은 눈이 내려 길이 미끄러울 수 있어요.`
-        case "뇌우":
-            return `오늘은 천둥번개가 칠 수 있으니 실내 활동을 추천해요.`
-        case "안개":
-            return `오늘은 안개가 껴서 가시거리가 짧아요. 운전 시 주의하세요.`
-        default:
-            return `오늘의 날씨는 ${condition}입니다.`
-    }
-}
+//     // 날씨별 문장
+//     switch (condition) {
+//         case "맑음":
+//             return isNight
+//                 ? `오늘 밤은 하늘이 맑고 ${tempDesc} 밤이에요.`
+//                 : `오늘은 하늘이 맑고 ${tempDesc} 날씨예요.`
+//         case "흐림":
+//         case "구름 많음":
+//         case "구름 약간":
+//             return isNight
+//                 ? `오늘 밤은 구름이 많고 ${tempDesc} 밤이에요.`
+//                 : `오늘은 구름이 많고 ${tempDesc} 날씨예요.`
+//         case "비":
+//             return `오늘은 비가 내리니 우산을 챙기세요.`
+//         case "눈":
+//             return `오늘은 눈이 내려 길이 미끄러울 수 있어요.`
+//         case "뇌우":
+//             return `오늘은 천둥번개가 칠 수 있으니 실내 활동을 추천해요.`
+//         case "안개":
+//             return `오늘은 안개가 껴서 가시거리가 짧아요. 운전 시 주의하세요.`
+//         default:
+//             return `오늘의 날씨는 ${condition}입니다.`
+//     }
+// }

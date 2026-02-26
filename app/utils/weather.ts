@@ -7,6 +7,13 @@ export type WeatherCardForecastItem = {
     iconCodePM: string
 }
 
+export type WeatherCardHourlyItem = {
+    dt: string // ISO timestamp
+    temp: number
+    pop: number
+    iconCode: string
+}
+
 export type WeatherCardData = {
     location: string
     temperature: number
@@ -15,6 +22,7 @@ export type WeatherCardData = {
     minTemp: number
     maxTemp: number
     forecast: WeatherCardForecastItem[]
+    hourly?: WeatherCardHourlyItem[]
     iconCode: string
 }
 

@@ -183,6 +183,11 @@ export async function loader({ request }: { request: Request }) {
     const [current, forecastJson] = await Promise.all([currentRes.json(), forecastRes.json()])
 
     const byDate: Record<string, DayAgg> = {}
+    const hourlyArray: { dt: string; temp: number; pop: number; iconCode: string }[] = []
+
+    const nowDate = new Date()
+    const tomorrowEnd = new Date(nowDate)
+    tomorrowEnd.setDate(tomorrowEnd.getDate() + 2)
 
     for (const item of forecastJson.list) {
         const [date, time] = item.dt_txt.split(" ")
@@ -190,6 +195,13 @@ export async function loader({ request }: { request: Request }) {
 
         const temp = item.main.temp
         const iconCode = item.weather[0].icon
+
+        // collect hourly data for today + tomorrow
+        const itemDate = new Date(item.dt_txt)
+        if (itemDate >= nowDate && itemDate < tomorrowEnd) {
+            hourlyArray.push({ dt: item.dt_txt, temp, pop: item.pop ?? 0, iconCode })
+        }
+
         if (!byDate[date]) {
             byDate[date] = {
                 min: temp,
@@ -244,6 +256,7 @@ export async function loader({ request }: { request: Request }) {
         condition: toCondition(current.weather[0].main, current.clouds?.all),
         iconCode: current.weather[0].icon,
         forecast,
+        hourly: hourlyArray,
     }
 
     weatherCache.set(key, {
