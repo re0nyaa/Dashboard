@@ -89,18 +89,15 @@ export function WeatherWidget() {
 
         const load = async () => {
             if (autoLocation) {
-                // 1) 캐시된 좌표가 있으면 즉시 사용
                 const cached = readCachedCoords()
                 if (cached) {
                     const next = await fetchWeather(cached)
                     if (!cancelled && next) setData(next)
                 } else {
-                    // 2) 서버 env fallback이 있으면 먼저 한 번 로드 (지오로케이션 대기 없이)
                     const base = await fetchWeather()
                     if (!cancelled && base) setData(base)
                 }
 
-                // 3) 백그라운드로 현재 위치를 받아서 최신 좌표로 갱신
                 const coords = await getCoords()
                 if (!coords) return
                 writeCachedCoords(coords)
@@ -173,7 +170,6 @@ export function WeatherWidget() {
                     }}
                 />
                 <div className="relative h-full w-full px-[56px] py-[44px] flex">
-                    {/* Left */}
                     <div className="absolute top-[10px] right-[10px]">
                         <div className="animate-[float-slow_5s_ease-in-out_infinite]">
                             <LargeWeatherIcon iconCode={data?.iconCode} />
@@ -221,7 +217,6 @@ export function WeatherWidget() {
         }
     `}
             >
-                {/* Background */}
                 <div
                     className="absolute inset-0"
                     style={{
@@ -229,7 +224,6 @@ export function WeatherWidget() {
                     }}
                 />
                 <div className="relative h-full w-full px-[56px] py-[44px] flex">
-                    {/* Left */}
                     <div className="w-[340px] h-full flex flex-col relative">
                         <div className="absolute -top-[45px] right-[0px]">
                             <div className="animate-[float-slow_5s_ease-in-out_infinite]">
@@ -261,7 +255,6 @@ export function WeatherWidget() {
                         </div>
                     </div>
 
-                    {/* Right */}
                     <div className="flex-1 pl-[40px] flex flex-col justify-center">
                         {forecast.length === 0 ? (
                             <div className="text-white/90 text-[28px] font-bold">

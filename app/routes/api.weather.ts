@@ -196,7 +196,6 @@ export async function loader({ request }: { request: Request }) {
         const temp = item.main.temp
         const iconCode = item.weather[0].icon
 
-        // collect hourly data for today + tomorrow
         const itemDate = new Date(item.dt_txt)
         if (itemDate >= nowDate && itemDate < tomorrowEnd) {
             hourlyArray.push({ dt: item.dt_txt, temp, pop: item.pop ?? 0, iconCode })

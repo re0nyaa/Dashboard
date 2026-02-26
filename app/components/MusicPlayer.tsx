@@ -60,7 +60,7 @@ export function MusicPlayer() {
     const [repeatMode, setRepeatModeState] = useState<"off" | "track" | "context">("off")
     const [recentTrack, setRecentTrack] = useState<Track | null>(null)
     const [accentColor, setAccentColor] = useState<string>("#838383")
-    // 5초사의 공백을 메우기 위한 진행 시간 보정
+    // 시간 보정
     const [progressBaseMs, setProgressBaseMs] = useState(0)
     const [progressSyncAt, setProgressSyncAt] = useState(0)
     const [displayProgressMs, setDisplayProgressMs] = useState(0)
