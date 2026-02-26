@@ -573,9 +573,9 @@ export function MusicPlayer() {
                         />
                     ) : null}
                     <div className="absolute inset-0 bg-black/25" />
-                    <div className="absolute left-[50px] top-[30px] flex items-center gap-1 text-white">
-                        <FaSpotify className="w-5 h-5" />
-                        <div className="text-[12px] font-bold">{deviceName}</div>
+                    <div className="absolute left-[50px] top-[30px] flex items-center gap-2 text-white">
+                        <FaSpotify className="w-7 h-7" />
+                        <div className="text-[14px] font-bold">{deviceName}</div>
                     </div>
                     <div className="absolute left-[48px] top-[90px] w-[760px]">
                         <div
