@@ -112,7 +112,9 @@ export function WeatherWidget() {
             const next = await fetchWeather(coords, force)
             if (!isCancelledRef.current && next) {
                 setData(next)
-                setLastUpdated(new Date())
+                if (next.lastUpdated) {
+                    setLastUpdated(new Date(next.lastUpdated))
+                }
             }
             return
         }
@@ -120,7 +122,9 @@ export function WeatherWidget() {
         const next = await fetchWeather(undefined, force)
         if (!isCancelledRef.current && next) {
             setData(next)
-            setLastUpdated(new Date())
+            if (next.lastUpdated) {
+                setLastUpdated(new Date(next.lastUpdated))
+            }
         }
     }, [])
 

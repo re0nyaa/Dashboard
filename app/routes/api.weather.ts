@@ -158,7 +158,8 @@ export async function loader({ request }: { request: Request }) {
     const key = cacheKeyForLatLon(lat, lon)
     const cachedWeather = weatherCache.get(key)
     const urlParams = url.searchParams
-    const forceRefresh = urlParams.get("update") === "true" || request.method === "POST"
+    const upd = urlParams.get("update")
+    const forceRefresh = upd === "1" || upd === "true" || request.method === "POST"
 
     if (cachedWeather && cachedWeather.expiresAt > Date.now() && !forceRefresh) {
         return new Response(JSON.stringify(cachedWeather.payload), {
@@ -175,7 +176,6 @@ export async function loader({ request }: { request: Request }) {
     const currentUrl = `${OPENWEATHER_BASE}/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric&lang=kr`
     const forecastUrl = `${OPENWEATHER_BASE}/forecast?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric&lang=kr`
 
-    // perform fetches; if fetch fails but we have cached data, return cached as fallback
     let current: any
     let forecastJson: any
     try {
@@ -189,7 +189,6 @@ export async function loader({ request }: { request: Request }) {
         ;[current, forecastJson] = await Promise.all([currentRes.json(), forecastRes.json()])
     } catch (err) {
         if (cachedWeather) {
-            // return stale cache with indicator header
             return new Response(JSON.stringify(cachedWeather.payload), {
                 status: 200,
                 headers: {
