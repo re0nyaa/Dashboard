@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import { fetchWeather, type WeatherCardData } from "../utils/weather"
 import { FaLocationDot } from "react-icons/fa6"
+import { FaRedoAlt } from "react-icons/fa"
 
 function LargeWeatherIcon({ iconCode }: { iconCode?: string }) {
     if (iconCode) {
@@ -24,99 +25,114 @@ export function WeatherWidget() {
     const [data, setData] = useState<WeatherCardData | null>(null)
     const [showDetail, setShowDetail] = useState(false)
 
+    const isCancelledRef = useRef(false)
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+    const [isRefreshing, setIsRefreshing] = useState(false)
+
+    const autoLocationRaw =
+        (import.meta as any).env?.VITE_LOCATION_AUTO ?? (import.meta as any).env?.LOCATION_AUTO
+    const autoLocation =
+        String(autoLocationRaw ?? "")
+            .trim()
+            .toLowerCase() === "true"
+
+    const getCoords = () =>
+        new Promise<{ lat: number; lon: number } | null>((resolve) => {
+            if (!("geolocation" in navigator)) return resolve(null)
+
+            navigator.geolocation.getCurrentPosition(
+                (pos) =>
+                    resolve({
+                        lat: pos.coords.latitude,
+                        lon: pos.coords.longitude,
+                    }),
+                () => resolve(null),
+                {
+                    enableHighAccuracy: false,
+                    timeout: 6000,
+                    maximumAge: 10 * 60 * 1000,
+                }
+            )
+        })
+
+    const readCachedCoords = (): { lat: number; lon: number } | null => {
+        try {
+            const raw = localStorage.getItem("weather:lastCoords")
+            if (!raw) return null
+            const parsed = JSON.parse(raw) as {
+                lat?: unknown
+                lon?: unknown
+                ts?: unknown
+            }
+            const lat = Number(parsed.lat)
+            const lon = Number(parsed.lon)
+            const ts = Number(parsed.ts)
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null
+            if (!Number.isFinite(ts)) return { lat, lon }
+
+            // 10분 이내 좌표만 즉시 사용
+            if (Date.now() - ts > 10 * 60 * 1000) return null
+            return { lat, lon }
+        } catch {
+            return null
+        }
+    }
+
+    const writeCachedCoords = (coords: { lat: number; lon: number }) => {
+        try {
+            localStorage.setItem(
+                "weather:lastCoords",
+                JSON.stringify({ ...coords, ts: Date.now() })
+            )
+        } catch {
+            // ignore
+        }
+    }
+
+    const load = useCallback(async () => {
+        if (autoLocation) {
+            const cached = readCachedCoords()
+            if (cached) {
+                const next = await fetchWeather(cached)
+                if (!isCancelledRef.current && next) {
+                    setData(next)
+                    setLastUpdated(new Date())
+                }
+            } else {
+                const base = await fetchWeather()
+                if (!isCancelledRef.current && base) {
+                    setData(base)
+                    setLastUpdated(new Date())
+                }
+            }
+
+            const coords = await getCoords()
+            if (!coords) return
+            writeCachedCoords(coords)
+            const next = await fetchWeather(coords)
+            if (!isCancelledRef.current && next) {
+                setData(next)
+                setLastUpdated(new Date())
+            }
+            return
+        }
+
+        const next = await fetchWeather()
+        if (!isCancelledRef.current && next) {
+            setData(next)
+            setLastUpdated(new Date())
+        }
+    }, [])
+
     useEffect(() => {
-        let cancelled = false
-
-        const autoLocationRaw =
-            (import.meta as any).env?.VITE_LOCATION_AUTO ?? (import.meta as any).env?.LOCATION_AUTO
-        const autoLocation =
-            String(autoLocationRaw ?? "")
-                .trim()
-                .toLowerCase() === "true"
-
-        const getCoords = () =>
-            new Promise<{ lat: number; lon: number } | null>((resolve) => {
-                if (!("geolocation" in navigator)) return resolve(null)
-
-                navigator.geolocation.getCurrentPosition(
-                    (pos) =>
-                        resolve({
-                            lat: pos.coords.latitude,
-                            lon: pos.coords.longitude,
-                        }),
-                    () => resolve(null),
-                    {
-                        enableHighAccuracy: false,
-                        timeout: 6000,
-                        maximumAge: 10 * 60 * 1000,
-                    }
-                )
-            })
-
-        const readCachedCoords = (): { lat: number; lon: number } | null => {
-            try {
-                const raw = localStorage.getItem("weather:lastCoords")
-                if (!raw) return null
-                const parsed = JSON.parse(raw) as {
-                    lat?: unknown
-                    lon?: unknown
-                    ts?: unknown
-                }
-                const lat = Number(parsed.lat)
-                const lon = Number(parsed.lon)
-                const ts = Number(parsed.ts)
-                if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null
-                if (!Number.isFinite(ts)) return { lat, lon }
-
-                // 10분 이내 좌표만 즉시 사용
-                if (Date.now() - ts > 10 * 60 * 1000) return null
-                return { lat, lon }
-            } catch {
-                return null
-            }
-        }
-
-        const writeCachedCoords = (coords: { lat: number; lon: number }) => {
-            try {
-                localStorage.setItem(
-                    "weather:lastCoords",
-                    JSON.stringify({ ...coords, ts: Date.now() })
-                )
-            } catch {
-                // ignore
-            }
-        }
-
-        const load = async () => {
-            if (autoLocation) {
-                const cached = readCachedCoords()
-                if (cached) {
-                    const next = await fetchWeather(cached)
-                    if (!cancelled && next) setData(next)
-                } else {
-                    const base = await fetchWeather()
-                    if (!cancelled && base) setData(base)
-                }
-
-                const coords = await getCoords()
-                if (!coords) return
-                writeCachedCoords(coords)
-                const next = await fetchWeather(coords)
-                if (!cancelled) setData(next)
-                return
-            }
-
-            const next = await fetchWeather()
-            if (!cancelled) setData(next)
-        }
-
+        isCancelledRef.current = false
         load()
         const interval = window.setInterval(load, 30 * 60 * 1000)
         return () => {
-            cancelled = true
+            isCancelledRef.current = true
             window.clearInterval(interval)
         }
-    }, [])
+    }, [load])
     const location = data?.location ?? "알 수 없는 위치"
     const temperature = data?.temperature ?? 0
     const condition = data?.condition ?? "정보 없음"
@@ -153,6 +169,9 @@ export function WeatherWidget() {
         finalTo = hslToHex(toHsl.h, Math.max(toHsl.s - 30, 0), Math.max(toHsl.l - 30, 12))
     }
 
+    const formatTime = (d: Date) =>
+        d.toLocaleTimeString("ko-KR", { hour: "numeric", minute: "numeric" })
+
     return (
         <div className="relative w-[860px] h-[440px]">
             <div
@@ -175,7 +194,23 @@ export function WeatherWidget() {
                             <LargeWeatherIcon iconCode={data?.iconCode} />
                         </div>
                     </div>
-
+                    <div
+                        className="absolute top-[10px] right-[40px] flex items-center gap-2"
+                        onClick={async (e) => {
+                            e.stopPropagation()
+                            setIsRefreshing(true)
+                            try {
+                                await load()
+                            } catch (err) {
+                                console.error(err)
+                            } finally {
+                                setTimeout(() => setIsRefreshing(false), 700)
+                            }
+                        }}
+                    >
+                        <span>{lastUpdated ? formatTime(lastUpdated) : "업데이트 없음"}</span>
+                        <FaRedoAlt className={isRefreshing ? "animate-[spin_700ms_linear]" : ""} />
+                    </div>
                     <div className="mt-[40px] flex-1 flex flex-col justify-center">
                         <div className="text-white text-[96px] font-black leading-none tracking-tight">
                             {temperature}°
@@ -185,7 +220,6 @@ export function WeatherWidget() {
                             {condition}
                         </div>
                         <div className="text-gray-300 text-[18px] font-bold flex items-center gap-2">
-                            {/* <FaLocationDot /> */}
                             {location}
                         </div>
                         <div className="flex mt-4 items-center">
@@ -228,7 +262,7 @@ export function WeatherWidget() {
                         <div className="absolute -top-[45px] right-[0px]">
                             <div className="animate-[float-slow_5s_ease-in-out_infinite]">
                                 <LargeWeatherIcon iconCode={data?.iconCode} />
-                            </div>{" "}
+                            </div>
                         </div>
 
                         <div className="flex-1 flex flex-col justify-center">
@@ -256,6 +290,25 @@ export function WeatherWidget() {
                     </div>
 
                     <div className="flex-1 pl-[40px] flex flex-col justify-center">
+                        <div
+                            className="absolute top-[10px] right-[40px] flex items-center gap-2"
+                            onClick={async (e) => {
+                                e.stopPropagation()
+                                setIsRefreshing(true)
+                                try {
+                                    await load()
+                                } catch (err) {
+                                    console.error(err)
+                                } finally {
+                                    setTimeout(() => setIsRefreshing(false), 700)
+                                }
+                            }}
+                        >
+                            <span>{lastUpdated ? formatTime(lastUpdated) : "업데이트 없음"}</span>
+                            <FaRedoAlt
+                                className={isRefreshing ? "animate-[spin_700ms_linear]" : ""}
+                            />
+                        </div>
                         {forecast.length === 0 ? (
                             <div className="text-white/90 text-[28px] font-bold">
                                 날씨 정보를 불러오는 중...
