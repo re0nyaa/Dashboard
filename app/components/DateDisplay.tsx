@@ -4,11 +4,24 @@ export function DateDisplay() {
     const [date, setDate] = useState(new Date())
 
     useEffect(() => {
-        const timer = setInterval(() => {
-            setDate(new Date())
-        }, 60000)
+        const now = new Date()
 
-        return () => clearInterval(timer)
+        const msUntilNextMinute = 60000 - (now.getSeconds() * 1000 + now.getMilliseconds())
+
+        let interval: ReturnType<typeof setInterval>
+
+        const timeout = setTimeout(() => {
+            setDate(new Date())
+
+            interval = setInterval(() => {
+                setDate(new Date())
+            }, 60000)
+        }, msUntilNextMinute)
+
+        return () => {
+            clearTimeout(timeout)
+            if (interval) clearInterval(interval)
+        }
     }, [])
 
     const formatDate = (date: Date) => {

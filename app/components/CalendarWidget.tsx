@@ -20,7 +20,7 @@ function buildMonthGrid(date: Date): DayCell[] {
 
     const cells: DayCell[] = []
 
-    for (let i = 0; i < 35; i++) {
+    for (let i = 0; i < 42; i++) {
         const col = i % 7
         const dayInMonth = i - firstDayCol + 1
 
@@ -79,10 +79,29 @@ async function fetchKoreanHolidays(year: number, month: number): Promise<Holiday
 export function CalendarWidget() {
     const [now, setNow] = useState(() => new Date())
     const [holidays, setHolidays] = useState<HolidaySet>(new Set())
-
     useEffect(() => {
-        const timer = window.setInterval(() => setNow(new Date()), 60 * 1000)
-        return () => window.clearInterval(timer)
+        const now = new Date()
+
+        const msUntilMidnight =
+            new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime()
+
+        let interval: number
+
+        const timeout = window.setTimeout(() => {
+            setNow(new Date())
+
+            interval = window.setInterval(
+                () => {
+                    setNow(new Date())
+                },
+                24 * 60 * 60 * 1000
+            )
+        }, msUntilMidnight)
+
+        return () => {
+            clearTimeout(timeout)
+            if (interval) clearInterval(interval)
+        }
     }, [])
 
     const year = now.getFullYear()
