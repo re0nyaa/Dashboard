@@ -4,7 +4,6 @@ import {
     getQueue,
     getRecentlyPlayedTrack,
     playPause,
-    playTrackUris,
     seekToPosition,
     setShuffle,
     setRepeatMode,
@@ -457,8 +456,8 @@ export function MusicPlayer() {
             <div className="w-[860px] h-[440px] bg-[#4b4b4b] rounded-[30px] flex items-center justify-center">
                 <button
                     type="button"
-                    onClick={() => {
-                        logoutSpotify()
+                    onClick={async () => {
+                        await logoutSpotify()
                         setAccessToken(null)
                         startSpotifyLogin()
                     }}
@@ -500,8 +499,8 @@ export function MusicPlayer() {
                         {accessToken ? (
                             <button
                                 type="button"
-                                onClick={() => {
-                                    logoutSpotify()
+                                onClick={async () => {
+                                    await logoutSpotify()
                                     setAccessToken(null)
                                 }}
                                 className="absolute top-[30px] right-[50px] text-white text-[12px] font-bold opacity-70"
