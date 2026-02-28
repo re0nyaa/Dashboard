@@ -89,17 +89,17 @@ export function WeatherWidget() {
         }
     }
 
-    const load = useCallback(async () => {
+    const load = useCallback(async (force = false) => {
         if (autoLocation) {
             const cached = readCachedCoords()
             if (cached) {
-                const next = await fetchWeather(cached)
+                const next = await fetchWeather(cached, force)
                 if (!isCancelledRef.current && next) {
                     setData(next)
                     setLastUpdated(new Date())
                 }
             } else {
-                const base = await fetchWeather()
+                const base = await fetchWeather(undefined, force)
                 if (!isCancelledRef.current && base) {
                     setData(base)
                     setLastUpdated(new Date())
@@ -109,7 +109,7 @@ export function WeatherWidget() {
             const coords = await getCoords()
             if (!coords) return
             writeCachedCoords(coords)
-            const next = await fetchWeather(coords)
+            const next = await fetchWeather(coords, force)
             if (!isCancelledRef.current && next) {
                 setData(next)
                 setLastUpdated(new Date())
@@ -117,7 +117,7 @@ export function WeatherWidget() {
             return
         }
 
-        const next = await fetchWeather()
+        const next = await fetchWeather(undefined, force)
         if (!isCancelledRef.current && next) {
             setData(next)
             setLastUpdated(new Date())
@@ -127,7 +127,7 @@ export function WeatherWidget() {
     useEffect(() => {
         isCancelledRef.current = false
         load()
-        const interval = window.setInterval(load, 30 * 60 * 1000)
+        const interval = window.setInterval(() => load(false), 30 * 60 * 1000)
         return () => {
             isCancelledRef.current = true
             window.clearInterval(interval)
@@ -200,7 +200,7 @@ export function WeatherWidget() {
                             e.stopPropagation()
                             setIsRefreshing(true)
                             try {
-                                await load()
+                                await load(true)
                             } catch (err) {
                                 console.error(err)
                             } finally {
@@ -296,7 +296,7 @@ export function WeatherWidget() {
                                 e.stopPropagation()
                                 setIsRefreshing(true)
                                 try {
-                                    await load()
+                                    await load(true)
                                 } catch (err) {
                                     console.error(err)
                                 } finally {

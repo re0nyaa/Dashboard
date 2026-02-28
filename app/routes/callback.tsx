@@ -14,9 +14,10 @@ export default function Callback() {
             } catch (e) {
                 if (!active) return
                 setError(e instanceof Error ? e.message : String(e))
+                console.error("Error handling Spotify callback:", e)
                 setTimeout(() => {
                     navigate("/", { replace: true })
-                }, 5000)
+                }, 2500)
                 return
             }
             if (!active) return

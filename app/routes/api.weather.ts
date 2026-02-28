@@ -157,7 +157,10 @@ export async function loader({ request }: { request: Request }) {
 
     const key = cacheKeyForLatLon(lat, lon)
     const cachedWeather = weatherCache.get(key)
-    if (cachedWeather && cachedWeather.expiresAt > Date.now()) {
+    const urlParams = url.searchParams
+    const forceRefresh = urlParams.get("update") === "true" || request.method === "POST"
+
+    if (cachedWeather && cachedWeather.expiresAt > Date.now() && !forceRefresh) {
         return new Response(JSON.stringify(cachedWeather.payload), {
             status: 200,
             headers: {
@@ -172,15 +175,32 @@ export async function loader({ request }: { request: Request }) {
     const currentUrl = `${OPENWEATHER_BASE}/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric&lang=kr`
     const forecastUrl = `${OPENWEATHER_BASE}/forecast?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric&lang=kr`
 
-    const [currentRes, forecastRes] = await Promise.all([
-        fetchWithTimeout(currentUrl, undefined, 3500),
-        fetchWithTimeout(forecastUrl, undefined, 3500),
-    ])
+    // perform fetches; if fetch fails but we have cached data, return cached as fallback
+    let current: any
+    let forecastJson: any
+    try {
+        const [currentRes, forecastRes] = await Promise.all([
+            fetchWithTimeout(currentUrl, undefined, 3500),
+            fetchWithTimeout(forecastUrl, undefined, 3500),
+        ])
 
-    if (!currentRes.ok) throw new Error("Current weather fetch failed")
-    if (!forecastRes.ok) throw new Error("Forecast fetch failed")
-
-    const [current, forecastJson] = await Promise.all([currentRes.json(), forecastRes.json()])
+        if (!currentRes.ok) throw new Error("Current weather fetch failed")
+        if (!forecastRes.ok) throw new Error("Forecast fetch failed")
+        ;[current, forecastJson] = await Promise.all([currentRes.json(), forecastRes.json()])
+    } catch (err) {
+        if (cachedWeather) {
+            // return stale cache with indicator header
+            return new Response(JSON.stringify(cachedWeather.payload), {
+                status: 200,
+                headers: {
+                    "content-type": "application/json; charset=utf-8",
+                    "cache-control": "public, max-age=600",
+                    "x-cache-stale": "true",
+                },
+            })
+        }
+        throw err
+    }
 
     const byDate: Record<string, DayAgg> = {}
     const hourlyArray: { dt: string; temp: number; pop: number; iconCode: string }[] = []
@@ -256,6 +276,7 @@ export async function loader({ request }: { request: Request }) {
         iconCode: current.weather[0].icon,
         forecast,
         hourly: hourlyArray,
+        lastUpdated: new Date().toISOString(),
     }
 
     weatherCache.set(key, {

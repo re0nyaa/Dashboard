@@ -24,18 +24,20 @@ export type WeatherCardData = {
     forecast: WeatherCardForecastItem[]
     hourly?: WeatherCardHourlyItem[]
     iconCode: string
+    lastUpdated: string
 }
 
-export async function fetchWeather(coords?: {
-    lat: number
-    lon: number
-}): Promise<WeatherCardData | null> {
+export async function fetchWeather(
+    coords?: { lat: number; lon: number },
+    force = false
+): Promise<WeatherCardData | null> {
     try {
         const url = new URL("/api/weather", window.location.origin)
         if (coords) {
             url.searchParams.set("lat", String(coords.lat))
             url.searchParams.set("lon", String(coords.lon))
         }
+        if (force) url.searchParams.set("update", "1")
 
         const response = await fetch(url.toString())
         if (!response.ok) return null
