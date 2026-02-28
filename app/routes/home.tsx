@@ -71,6 +71,7 @@ export default function Home() {
 
     const [widgetsOrder, setWidgetsOrder] = useState([0, 1, 2, 3, 4])
     const widgets = widgetsOrder.map((i) => widgetComponents[i])
+
     const widgetCount = widgets.length
 
     const LONG_PRESS_MS = 2000
@@ -81,8 +82,18 @@ export default function Home() {
     const startYRef = useRef<number | null>(null)
     const swipeLockRef = useRef(false)
 
-    const goNext = () => setActiveWidget((p) => (p + 1) % widgetCount)
-    const goPrev = () => setActiveWidget((p) => (p - 1 + widgetCount) % widgetCount)
+    const goNext = () =>
+        setActiveWidget((p) => {
+            const next = (p + 1) % widgetCount
+            console.log("goNext", { prev: p, next })
+            return next
+        })
+    const goPrev = () =>
+        setActiveWidget((p) => {
+            const next = (p - 1 + widgetCount) % widgetCount
+            console.log("goPrev", { prev: p, next })
+            return next
+        })
 
     const handlePointerDown: React.PointerEventHandler<HTMLDivElement> = (e) => {
         if (editMode) return
@@ -113,8 +124,15 @@ export default function Home() {
         }
 
         if (Math.abs(dx) > 70 && Math.abs(dy) < Math.abs(dx) * 0.6) {
+            console.log("handlePointerMove swipe", { dx, dy })
             swipeLockRef.current = true
-            dx < 0 ? goNext() : goPrev()
+            if (dx < 0) {
+                console.log("detected swipe left -> goNext")
+                goNext()
+            } else {
+                console.log("detected swipe right -> goPrev")
+                goPrev()
+            }
             startXRef.current = null
             startYRef.current = null
             setTimeout(() => (swipeLockRef.current = false), 400)
@@ -149,7 +167,6 @@ export default function Home() {
                             transformOrigin: "top left",
                         }}
                     >
-                        {/* 시계 */}
                         <div
                             className="absolute left-[35px] flex flex-col gap-[60px]"
                             style={{ top: clockTop }}
@@ -157,7 +174,6 @@ export default function Home() {
                             <Clock />
                             <DateDisplay />
                         </div>
-
                         <div
                             className="absolute"
                             style={{
@@ -199,7 +215,6 @@ export default function Home() {
                                 </div>
                             )}
                         </div>
-
                         {!editMode && (
                             <div
                                 className="absolute left-[1010px] w-[860px] flex justify-center gap-3"

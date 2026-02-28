@@ -197,3 +197,68 @@ export async function getValidSpotifyAccessToken(): Promise<string | null> {
     storeTokens(refreshed)
     return refreshed.access_token
 }
+
+let _refreshTimer: number | null = null
+const DEFAULT_REFRESH_BUFFER_MS = 60_000
+
+export function stopSpotifyAutoRefresh() {
+    if (_refreshTimer != null) {
+        clearTimeout(_refreshTimer)
+        _refreshTimer = null
+    }
+}
+
+export function startSpotifyAutoRefresh(opts?: {
+    onRefresh?: (token: string) => void
+    bufferMs?: number
+}) {
+    stopSpotifyAutoRefresh()
+    const buffer = opts?.bufferMs ?? DEFAULT_REFRESH_BUFFER_MS
+
+    const schedule = async () => {
+        try {
+            const refreshTokenValue = getStored("refreshToken")
+            const expiresAt = Number(getStored("expiresAt") ?? "0")
+            if (!refreshTokenValue || !expiresAt) return
+
+            const msUntil = expiresAt - Date.now() - buffer
+            if (msUntil <= 0) {
+                try {
+                    const refreshed = await refreshAccessToken(refreshTokenValue)
+                    storeTokens(refreshed)
+                    opts?.onRefresh?.(refreshed.access_token)
+                } catch (err) {
+                    logoutSpotify()
+                    console.error("spotify auto-refresh failed, logging out", err)
+                }
+                schedule()
+                return
+            }
+
+            _refreshTimer = window.setTimeout(async () => {
+                try {
+                    const refreshed = await refreshAccessToken(refreshTokenValue)
+                    storeTokens(refreshed)
+                    opts?.onRefresh?.(refreshed.access_token)
+                } catch (err) {
+                    console.error("spotify auto-refresh failed", err)
+                }
+                schedule()
+            }, msUntil) as unknown as number
+        } catch (err) {
+            console.error("spotify auto-refresh schedule error", err)
+        }
+    }
+
+    schedule()
+}
+
+export function isSpotifyConnected(): boolean {
+    return Boolean(getStored("accessToken") || getStored("refreshToken"))
+}
+
+try {
+    if (typeof window !== "undefined" && getStored("refreshToken")) {
+        startSpotifyAutoRefresh()
+    }
+} catch (e) {}
