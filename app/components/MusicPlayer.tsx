@@ -435,23 +435,7 @@ export function MusicPlayer() {
             }, 500)
         }
     }
-    const handlePlayRecent = async () => {
-        if (!accessToken || !recentTrack?.uri) return
-        const state = await getPlayerState(accessToken)
-        if (!state || !state.device) {
-            pushToast(
-                "재생 가능한 Spotify 디바이스가 없습니다. Spotify 앱을 켜고 재생을 시작해 주세요.",
-                { kind: "error" }
-            )
-            return
-        }
-        const ok = await playTrackUris(accessToken, [recentTrack.uri])
-        if (!ok) return
-        setTimeout(() => {
-            void loadCurrentTrack(accessToken)
-            void loadQueue(accessToken)
-        }, 600)
-    }
+
     const updateSeekPreviewFromClientX = (clientX: number, rect: DOMRect) => {
         if (!currentTrack) return 0
         const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
@@ -512,14 +496,7 @@ export function MusicPlayer() {
                                 {recentTrack.artist}
                             </div>
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => void handlePlayRecent()}
-                            className="absolute right-[10px] bottom-[10px] -translate-x-1/2 bg-[#30D866] -translate-y-1/2 w-[60px] h-[60px] rounded-full text-white"
-                            aria-label="Play recent"
-                        >
-                            <FaPlay className="w-[30px] h-[30px] mx-auto text-black" />
-                        </button>
+
                         {accessToken ? (
                             <button
                                 type="button"
