@@ -121,15 +121,24 @@ function FlipDigit({ digit }: FlipDigitProps) {
 }
 
 export function Clock() {
-    const [time, setTime] = useState(new Date())
+    const [time, setTime] = useState<Date | null>(null)
+    const [mounted, setMounted] = useState(false)
 
     useEffect(() => {
-        const timer = setInterval(() => {
-            setTime(new Date())
-        }, 500)
-
-        return () => clearInterval(timer)
+        setMounted(true)
+        setTime(new Date())
+        return
     }, [])
+
+    useEffect(() => {
+        if (!mounted) return
+        const timer = setInterval(() => setTime(new Date()), 500)
+        return () => clearInterval(timer)
+    }, [mounted])
+
+    if (!mounted || !time) {
+        return <div className="relative h-[320px] w-[890px]" />
+    }
 
     const hours = String(time.getHours()).padStart(2, "0")
     const minutes = String(time.getMinutes()).padStart(2, "0")

@@ -85,13 +85,11 @@ export default function Home() {
     const goNext = () =>
         setActiveWidget((p) => {
             const next = (p + 1) % widgetCount
-            console.log("goNext", { prev: p, next })
             return next
         })
     const goPrev = () =>
         setActiveWidget((p) => {
             const next = (p - 1 + widgetCount) % widgetCount
-            console.log("goPrev", { prev: p, next })
             return next
         })
 
@@ -124,13 +122,10 @@ export default function Home() {
         }
 
         if (Math.abs(dx) > 70 && Math.abs(dy) < Math.abs(dx) * 0.6) {
-            console.log("handlePointerMove swipe", { dx, dy })
             swipeLockRef.current = true
             if (dx < 0) {
-                console.log("detected swipe left -> goNext")
                 goNext()
             } else {
-                console.log("detected swipe right -> goPrev")
                 goPrev()
             }
             startXRef.current = null
