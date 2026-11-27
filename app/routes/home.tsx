@@ -19,13 +19,15 @@ import { ScheduleWidget } from "~/components/ScheduleWidget"
 import { SettingPanel } from "~/components/SettingPanel"
 import { WeatherWidget } from "~/components/WeatherWidget"
 
-const CARD_W = 860
-const CARD_H = 440
+const CARD_W = 1280
+const CARD_H = 720
 
 function ScaledWidgetBox({
     children,
     className = "",
     fullBleed = false,
+    cardWidth = CARD_W,
+    cardHeight = CARD_H,
     onPointerDown,
     onPointerMove,
     onPointerUp,
@@ -34,6 +36,8 @@ function ScaledWidgetBox({
     children: React.ReactNode
     className?: string
     fullBleed?: boolean
+    cardWidth?: number
+    cardHeight?: number
     onPointerDown?: React.PointerEventHandler<HTMLDivElement>
     onPointerMove?: React.PointerEventHandler<HTMLDivElement>
     onPointerUp?: React.PointerEventHandler<HTMLDivElement>
@@ -50,8 +54,8 @@ function ScaledWidgetBox({
         const update = () => {
             const rect = el.getBoundingClientRect()
             if (rect.width > 0 && rect.height > 0) {
-                const scaleW = rect.width / CARD_W
-                const scaleH = rect.height / CARD_H
+                const scaleW = rect.width / cardWidth
+                const scaleH = rect.height / cardHeight
                 const ratioDiff = Math.max(scaleW / scaleH, scaleH / scaleW)
                 if (fullBleed && ratioDiff <= 1.22) {
                     setScale(Math.max(scaleW, scaleH))
@@ -71,7 +75,7 @@ function ScaledWidgetBox({
             observer.disconnect()
             window.removeEventListener("resize", update)
         }
-    }, [fullBleed])
+    }, [fullBleed, cardWidth, cardHeight])
 
     return (
         <div
@@ -85,15 +89,15 @@ function ScaledWidgetBox({
             <div
                 className="relative shrink-0"
                 style={{
-                    width: Math.round(CARD_W * scale),
-                    height: Math.round(CARD_H * scale),
+                    width: Math.round(cardWidth * scale),
+                    height: Math.round(cardHeight * scale),
                 }}
             >
                 <div
                     className={`absolute top-0 left-0 ${isCovered ? "fullscreen-widget" : ""}`}
                     style={{
-                        width: CARD_W,
-                        height: CARD_H,
+                        width: cardWidth,
+                        height: cardHeight,
                         transform: `scale(${scale})`,
                         transformOrigin: "top left",
                     }}
@@ -599,7 +603,7 @@ export default function Home() {
                                                         setDraggedId(null)
                                                         setDragOverId(null)
                                                     }}
-                                                    className={`group relative w-full aspect-[860/440] rounded-[20px] transition-[opacity,box-shadow] duration-200 select-none cursor-grab active:cursor-grabbing ${
+                                                    className={`group relative w-full aspect-video rounded-[20px] transition-[opacity,box-shadow] duration-200 select-none cursor-grab active:cursor-grabbing ${
                                                         isDragging
                                                             ? "opacity-45 ring-2 ring-white/40"
                                                             : isDragOver
