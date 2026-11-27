@@ -8,7 +8,7 @@ export default [
     route("api/google/auth", "routes/api.google.auth.ts"),
     route("api/google/events", "routes/api.google.events.ts"),
     route("auth/google", "routes/auth.google.ts"),
-    route("auth/google/callback", "routes/auth.google.callback.ts"),
+    route("auth/google/callback", "routes/auth.google.callback.tsx"),
     route("callback", "routes/callback.tsx"),
     index("routes/home.tsx"),
 ] satisfies RouteConfig

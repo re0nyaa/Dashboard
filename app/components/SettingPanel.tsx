@@ -1,15 +1,14 @@
 import { useEffect, useState } from "react"
 import { FaGoogle, FaSpotify } from "react-icons/fa6"
 import { IoChevronForward, IoGridOutline } from "react-icons/io5"
+import { fetchGoogleAuthStatus, logoutGoogle, type GoogleAuthStatus } from "../utils/schedule"
 import {
-    fetchGoogleAuthStatus,
-    logoutGoogle,
-    type GoogleAuthStatus,
-} from "../utils/schedule"
-import {
+    fetchSpotifyUserProfile,
+    getCachedSpotifyUserProfile,
     isSpotifyConnected,
     logoutSpotify,
     startSpotifyLogin,
+    type SpotifyUserProfile,
 } from "../utils/spotifyAuth"
 
 export function SettingPanel({
@@ -30,10 +29,21 @@ export function SettingPanel({
         user: null,
     })
     const [spotifyConnected, setSpotifyConnected] = useState(false)
+    const [spotifyUser, setSpotifyUser] = useState<SpotifyUserProfile | null>(() =>
+        typeof window !== "undefined" ? getCachedSpotifyUserProfile() : null
+    )
 
     useEffect(() => {
         if (!isOpen && dragProgress <= 0) return
-        setSpotifyConnected(isSpotifyConnected())
+        const connected = isSpotifyConnected()
+        setSpotifyConnected(connected)
+        if (connected) {
+            void fetchSpotifyUserProfile().then((p) => {
+                if (p) setSpotifyUser(p)
+            })
+        } else {
+            setSpotifyUser(null)
+        }
         void fetchGoogleAuthStatus().then(setGoogleAuth)
     }, [isOpen, dragProgress > 0])
 
@@ -53,6 +63,7 @@ export function SettingPanel({
     const handleSpotifyLogout = () => {
         logoutSpotify()
         setSpotifyConnected(false)
+        setSpotifyUser(null)
         try {
             localStorage.removeItem("dashboard.spotify.player.cache.v1")
         } catch {
@@ -80,7 +91,9 @@ export function SettingPanel({
                 className="absolute inset-0 bg-black/55 backdrop-blur-sm"
                 style={{
                     opacity: dragProgress,
-                    transition: isDragging ? "none" : "opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1)",
+                    transition: isDragging
+                        ? "none"
+                        : "opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1)",
                 }}
             />
 
@@ -148,9 +161,11 @@ export function SettingPanel({
                                         <span className="text-[15px] font-medium text-white/95">
                                             Spotify
                                         </span>
-                                        <span className="text-[13px] text-white/45">
-                                            {spotifyConnected ? "연결됨" : "연결 안 됨"}
-                                        </span>
+                                        {spotifyConnected && spotifyUser?.displayName ? (
+                                            <span className="text-[13px] text-white/45 truncate">
+                                                {spotifyUser.displayName}
+                                            </span>
+                                        ) : null}
                                     </div>
 
                                     {spotifyConnected ? (

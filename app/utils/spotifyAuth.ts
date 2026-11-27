@@ -4,6 +4,7 @@ const STORAGE_KEYS = {
     expiresAt: "spotify_expires_at",
     pkceVerifier: "spotify_pkce_verifier",
     authState: "spotify_auth_state",
+    userProfile: "spotify_user_profile",
 } as const
 
 type TokenResponse = {
@@ -63,6 +64,46 @@ export function logoutSpotify() {
     removeStored("expiresAt")
     removeStored("pkceVerifier")
     removeStored("authState")
+    removeStored("userProfile")
+}
+
+export type SpotifyUserProfile = {
+    id: string
+    displayName: string
+}
+
+export function getCachedSpotifyUserProfile(): SpotifyUserProfile | null {
+    try {
+        const raw = getStored("userProfile")
+        if (!raw) return null
+        const parsed = JSON.parse(raw) as Partial<SpotifyUserProfile>
+        if (typeof parsed.displayName === "string" && typeof parsed.id === "string") {
+            return { id: parsed.id, displayName: parsed.displayName }
+        }
+    } catch {
+        // ignore
+    }
+    return null
+}
+
+export async function fetchSpotifyUserProfile(): Promise<SpotifyUserProfile | null> {
+    try {
+        const token = await getValidSpotifyAccessToken()
+        if (!token) return null
+        const res = await fetch("https://api.spotify.com/v1/me", {
+            headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!res.ok) return getCachedSpotifyUserProfile()
+        const data = (await res.json()) as { id?: string; display_name?: string }
+        const profile: SpotifyUserProfile = {
+            id: String(data.id ?? ""),
+            displayName: String(data.display_name || data.id || "Spotify"),
+        }
+        setStored("userProfile", JSON.stringify(profile))
+        return profile
+    } catch {
+        return getCachedSpotifyUserProfile()
+    }
 }
 
 export async function startSpotifyLogin() {
