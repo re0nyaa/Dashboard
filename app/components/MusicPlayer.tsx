@@ -770,10 +770,12 @@ export function MusicPlayer() {
                         </div>
                     </div>
 
-                    {/* 앨범 아트 + 곡 정보 */}
+                    {/* 앨범 아트 + 곡 정보 + 프로그레스 + 컨트롤 (접기 시 좌우 분할) */}
                     <div
-                        className={`flex items-center min-w-0 transition-all duration-300 ${
-                            showPlaylist ? "gap-6 sm:gap-8" : "gap-7 sm:gap-12 lg:gap-14"
+                        className={`grid min-w-0 transition-all duration-300 ${
+                            showPlaylist
+                                ? "grid-cols-[auto_1fr] items-center gap-x-6 sm:gap-x-8 gap-y-6"
+                                : "grid-cols-1 md:grid-cols-[auto_1fr] md:grid-rows-[1fr_auto_auto_auto_1fr] items-center gap-y-5 md:gap-x-10 lg:gap-x-14"
                         }`}
                     >
                         {currentTrack.coverUrl ? (
@@ -782,18 +784,24 @@ export function MusicPlayer() {
                                 alt={currentTrack.album}
                                 className={`rounded-3xl object-cover shadow-[0_24px_60px_rgba(0,0,0,0.55)] ring-1 ring-white/15 shrink-0 transition-all duration-300 ${
                                     showPlaylist
-                                        ? "w-28 h-28 sm:w-44 sm:h-44 lg:w-52 lg:h-52"
-                                        : "w-36 h-36 sm:w-56 sm:h-56 lg:w-[min(44svh,360px)] lg:h-[min(44svh,360px)]"
+                                        ? "col-start-1 row-start-1 w-28 h-28 sm:w-44 sm:h-44 lg:w-52 lg:h-52"
+                                        : "mx-auto md:mx-0 md:col-start-1 md:row-start-1 md:row-span-5 w-52 h-52 sm:w-64 sm:h-64 md:w-72 md:h-72 lg:w-[min(54svh,440px)] lg:h-[min(54svh,440px)]"
                                 }`}
                             />
                         ) : null}
-                        <div className="min-w-0 flex-1">
+                        <div
+                            className={`min-w-0 w-full ${
+                                showPlaylist
+                                    ? `${currentTrack.coverUrl ? "col-start-2" : "col-span-2"} row-start-1`
+                                    : `${currentTrack.coverUrl ? "md:col-start-2" : "md:col-span-2"} md:row-start-2 text-center md:text-left`
+                            }`}
+                        >
                             <div
                                 ref={titleWrapRef}
                                 className={`text-white font-bold leading-tight overflow-hidden whitespace-nowrap transition-all duration-300 ${
                                     showPlaylist
                                         ? "text-[clamp(1.6rem,3.4vw,3rem)]"
-                                        : "text-[clamp(2rem,4.5vw,4.25rem)]"
+                                        : "text-[clamp(1.85rem,4vw,3.75rem)]"
                                 }`}
                             >
                                 {titleMarqueeOn ? (
@@ -817,7 +825,7 @@ export function MusicPlayer() {
                                 className={`mt-2 sm:mt-3 text-white/75 font-semibold truncate transition-all duration-300 ${
                                     showPlaylist
                                         ? "text-[clamp(1rem,1.6vw,1.35rem)]"
-                                        : "text-[clamp(1.2rem,2.2vw,1.9rem)]"
+                                        : "text-[clamp(1.15rem,2vw,1.75rem)]"
                                 }`}
                             >
                                 {currentTrack.artist}
@@ -830,10 +838,15 @@ export function MusicPlayer() {
                                 {currentTrack.album}
                             </div>
                         </div>
-                    </div>
 
-                    {/* 프로그레스 바 (액체 물결 오버레이) */}
-                    <div className="w-full pt-5">
+                        {/* 프로그레스 바 (액체 물결 오버레이) */}
+                        <div
+                            className={`w-full ${
+                                showPlaylist
+                                    ? "col-span-2 row-start-2 pt-5"
+                                    : `${currentTrack.coverUrl ? "md:col-start-2" : "md:col-span-2"} md:row-start-3 pt-1 md:pt-2`
+                            }`}
+                        >
                         <div className="relative h-6 flex items-center">
                             <LiquidWaveOverlay
                                 color={accentColor}
@@ -930,13 +943,15 @@ export function MusicPlayer() {
                         </div>
                     </div>
 
-                    {/* 재생 컨트롤 */}
-                    <div
-                        className={`flex items-center justify-center pt-1 transition-all duration-300 ${
-                            showPlaylist ? "gap-7 sm:gap-10" : "gap-9 sm:gap-14"
-                        }`}
-                        onPointerDown={(e) => e.stopPropagation()}
-                    >
+                        {/* 재생 컨트롤 */}
+                        <div
+                            className={`flex items-center justify-center pt-1 transition-all duration-300 ${
+                                showPlaylist
+                                    ? "col-span-2 row-start-3 gap-7 sm:gap-10"
+                                    : `${currentTrack.coverUrl ? "md:col-start-2" : "md:col-span-2"} md:row-start-4 gap-9 sm:gap-12`
+                            }`}
+                            onPointerDown={(e) => e.stopPropagation()}
+                        >
                         <button
                             type="button"
                             onClick={handleShuffle}
@@ -1028,6 +1043,7 @@ export function MusicPlayer() {
                                 </span>
                             )}
                         </button>
+                        </div>
                     </div>
                 </div>
 
