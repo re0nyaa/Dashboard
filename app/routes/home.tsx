@@ -16,6 +16,7 @@ import { NewsCarousel } from "~/components/NewsCarousel"
 import { MusicPlayer } from "~/components/MusicPlayer"
 import { CalendarWidget } from "~/components/CalendarWidget"
 import { ScheduleWidget } from "~/components/ScheduleWidget"
+import { SettingPanel } from "~/components/SettingPanel"
 import { WeatherWidget } from "~/components/WeatherWidget"
 
 const CARD_W = 860
@@ -130,6 +131,9 @@ export default function Home() {
     const [activePage, setActivePage] = useState(0)
     const [direction, setDirection] = useState<1 | -1>(1)
     const [editMode, setEditMode] = useState(false)
+    const [settingsOpen, setSettingsOpen] = useState(false)
+    const [settingsDragProgress, setSettingsDragProgress] = useState(0)
+    const [isDraggingSettings, setIsDraggingSettings] = useState(false)
     const [widgetsOrder, setWidgetsOrder] = useState<WidgetId[]>(DEFAULT_WIDGET_ORDER)
     const [orderLoaded, setOrderLoaded] = useState(false)
     const [draggedId, setDraggedId] = useState<WidgetId | null>(null)
@@ -218,6 +222,7 @@ export default function Home() {
     const startXRef = useRef<number | null>(null)
     const startYRef = useRef<number | null>(null)
     const swipeLockRef = useRef(false)
+    const gestureModeRef = useRef<"none" | "horizontal" | "settings-open" | "settings-close">("none")
 
     const [showIndicator, setShowIndicator] = useState(false)
     const indicatorTimerRef = useRef<number | null>(null)
@@ -271,6 +276,14 @@ export default function Home() {
     useEffect(() => {
         if (editMode) return
         const onKeyDown = (e: KeyboardEvent) => {
+            const target = e.target as HTMLElement | null
+            const active = document.activeElement as HTMLElement | null
+            if (
+                target?.closest('input, textarea, select, [contenteditable="true"]') ||
+                active?.closest('input, textarea, select, [contenteditable="true"]')
+            ) {
+                return
+            }
             if (e.key === "ArrowRight") goNext()
             else if (e.key === "ArrowLeft") goPrev()
         }
@@ -280,14 +293,29 @@ export default function Home() {
 
     const handlePointerDown: React.PointerEventHandler<HTMLDivElement> = (e) => {
         if (editMode) return
+        const target = e.target as HTMLElement | null
+        const active = document.activeElement as HTMLElement | null
+        if (
+            !settingsOpen &&
+            (target?.closest('input, textarea, select, [contenteditable="true"], aside, [role="dialog"]') ||
+                active?.closest('input, textarea, select, [contenteditable="true"]'))
+        ) {
+            return
+        }
+        if (settingsOpen && target?.closest("button, a, input, select, textarea")) {
+            return
+        }
 
         startXRef.current = e.clientX
         startYRef.current = e.clientY
+        gestureModeRef.current = "none"
 
-        longPressTimer.current = setTimeout(() => {
-            setEditMode(true)
-            longPressTimer.current = null
-        }, LONG_PRESS_MS)
+        if (!settingsOpen) {
+            longPressTimer.current = setTimeout(() => {
+                setEditMode(true)
+                longPressTimer.current = null
+            }, LONG_PRESS_MS)
+        }
     }
 
     const handlePointerMove: React.PointerEventHandler<HTMLDivElement> = (e) => {
@@ -306,7 +334,34 @@ export default function Home() {
             }
         }
 
-        if (Math.abs(dx) > 70 && Math.abs(dy) < Math.abs(dx) * 0.6) {
+        // 시계 페이지(safePage === 0)에서만 아래→위 스와이프로 설정창 따라 올라오게 함
+        if (gestureModeRef.current === "none") {
+            if (settingsOpen && dy > 10 && Math.abs(dy) > Math.abs(dx)) {
+                gestureModeRef.current = "settings-close"
+                setIsDraggingSettings(true)
+            } else if (!settingsOpen && safePage === 0 && dy < -10 && Math.abs(dy) > Math.abs(dx)) {
+                gestureModeRef.current = "settings-open"
+                setIsDraggingSettings(true)
+            } else if (!settingsOpen && Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy)) {
+                gestureModeRef.current = "horizontal"
+            }
+        }
+
+        const dragRange = Math.max(240, window.innerHeight * 0.45)
+
+        if (gestureModeRef.current === "settings-open") {
+            const progress = Math.max(0, Math.min(1, -dy / dragRange))
+            setSettingsDragProgress(progress)
+            return
+        }
+
+        if (gestureModeRef.current === "settings-close") {
+            const progress = Math.max(0, Math.min(1, 1 - dy / dragRange))
+            setSettingsDragProgress(progress)
+            return
+        }
+
+        if (!settingsOpen && Math.abs(dx) > 70 && Math.abs(dy) < Math.abs(dx) * 0.6) {
             swipeLockRef.current = true
             if (dx < 0) {
                 goNext()
@@ -315,6 +370,7 @@ export default function Home() {
             }
             startXRef.current = null
             startYRef.current = null
+            gestureModeRef.current = "none"
             setTimeout(() => (swipeLockRef.current = false), 360)
         }
     }
@@ -324,6 +380,28 @@ export default function Home() {
             clearTimeout(longPressTimer.current)
             longPressTimer.current = null
         }
+
+        if (gestureModeRef.current === "settings-open") {
+            setIsDraggingSettings(false)
+            if (settingsDragProgress >= 0.24) {
+                setSettingsOpen(true)
+                setSettingsDragProgress(1)
+            } else {
+                setSettingsOpen(false)
+                setSettingsDragProgress(0)
+            }
+        } else if (gestureModeRef.current === "settings-close") {
+            setIsDraggingSettings(false)
+            if (settingsDragProgress <= 0.78) {
+                setSettingsOpen(false)
+                setSettingsDragProgress(0)
+            } else {
+                setSettingsOpen(true)
+                setSettingsDragProgress(1)
+            }
+        }
+
+        gestureModeRef.current = "none"
         startXRef.current = null
         startYRef.current = null
     }
@@ -340,18 +418,21 @@ export default function Home() {
             onPointerUp={handlePointerEnd}
             onPointerCancel={handlePointerEnd}
         >
-            {/* 우측 상단 미니멀 위젯 편집 버튼 */}
-            {!editMode && (
-                <button
-                    type="button"
-                    aria-label="위젯 편집"
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onClick={() => setEditMode(true)}
-                    className="fixed top-5 right-5 z-30 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-black/30 hover:bg-black/50 text-white/80 hover:text-white ring-1 ring-white/15 backdrop-blur-md text-xs font-medium transition-colors cursor-pointer"
-                >
-                    <span className="hidden sm:inline">편집</span>
-                </button>
-            )}
+            {/* 설정창 (시계 페이지에서 아래→위 스와이프로 열림) */}
+            <SettingPanel
+                isOpen={settingsOpen}
+                dragProgress={settingsDragProgress}
+                isDragging={isDraggingSettings}
+                onClose={() => {
+                    setSettingsOpen(false)
+                    setSettingsDragProgress(0)
+                }}
+                onOpenWidgetEditor={() => {
+                    setSettingsOpen(false)
+                    setSettingsDragProgress(0)
+                    setEditMode(true)
+                }}
+            />
 
             {/* 메인 단일 페이지 스테이지 */}
             <div className="w-full h-full flex items-center justify-center">

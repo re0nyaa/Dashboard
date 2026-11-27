@@ -176,24 +176,110 @@ function LiquidWaveOverlay({
     )
 }
 
+const SPOTIFY_PLAYER_CACHE_KEY = "dashboard.spotify.player.cache.v1"
+
+type SpotifyPlayerCache = {
+    accessToken: string | null
+    currentTrack: Track | null
+    recentTrack: Track | null
+    queue: QueueTrack[]
+    deviceName: string
+    isPlaying: boolean
+    shuffleOn: boolean
+    repeatMode: "off" | "track" | "context"
+    accentColor: string
+    showPlaylist: boolean
+}
+
+let memorySpotifyCache: SpotifyPlayerCache | null = null
+
+function loadSpotifyPlayerCache(): SpotifyPlayerCache {
+    if (memorySpotifyCache) return memorySpotifyCache
+    if (typeof window !== "undefined") {
+        try {
+            const raw = localStorage.getItem(SPOTIFY_PLAYER_CACHE_KEY)
+            if (raw) {
+                const parsed = JSON.parse(raw) as Partial<SpotifyPlayerCache>
+                const cache: SpotifyPlayerCache = {
+                    accessToken: typeof parsed.accessToken === "string" ? parsed.accessToken : null,
+                    currentTrack: parsed.currentTrack ?? null,
+                    recentTrack: parsed.recentTrack ?? null,
+                    queue: Array.isArray(parsed.queue) ? parsed.queue : [],
+                    deviceName: typeof parsed.deviceName === "string" ? parsed.deviceName : "Device",
+                    isPlaying: Boolean(parsed.isPlaying),
+                    shuffleOn: Boolean(parsed.shuffleOn),
+                    repeatMode:
+                        parsed.repeatMode === "track" || parsed.repeatMode === "context"
+                            ? parsed.repeatMode
+                            : "off",
+                    accentColor:
+                        typeof parsed.accentColor === "string" ? parsed.accentColor : "#838383",
+                    showPlaylist:
+                        typeof parsed.showPlaylist === "boolean" ? parsed.showPlaylist : true,
+                }
+                memorySpotifyCache = cache
+                return cache
+            }
+        } catch {
+            // ignore storage errors
+        }
+    }
+    return {
+        accessToken: null,
+        currentTrack: null,
+        recentTrack: null,
+        queue: [],
+        deviceName: "Device",
+        isPlaying: false,
+        shuffleOn: false,
+        repeatMode: "off",
+        accentColor: "#838383",
+        showPlaylist: true,
+    }
+}
+
+function saveSpotifyPlayerCache(patch: Partial<SpotifyPlayerCache>) {
+    const next: SpotifyPlayerCache = { ...loadSpotifyPlayerCache(), ...patch }
+    memorySpotifyCache = next
+    if (typeof window === "undefined") return
+    try {
+        localStorage.setItem(SPOTIFY_PLAYER_CACHE_KEY, JSON.stringify(next))
+    } catch {
+        // ignore storage errors
+    }
+}
+
 export function MusicPlayer() {
-    const [isPlaying, setIsPlaying] = useState(false)
-    const [currentTrack, setCurrentTrack] = useState<Track | null>(null)
-    const [accessToken, setAccessToken] = useState<string | null>(null)
-    const [deviceName, setDeviceName] = useState("Device")
-    const [queue, setQueue] = useState<QueueTrack[]>([])
+    const [isPlaying, setIsPlaying] = useState(() => loadSpotifyPlayerCache().isPlaying)
+    const [currentTrack, setCurrentTrack] = useState<Track | null>(
+        () => loadSpotifyPlayerCache().currentTrack
+    )
+    const [accessToken, setAccessToken] = useState<string | null>(
+        () => loadSpotifyPlayerCache().accessToken
+    )
+    const [deviceName, setDeviceName] = useState(() => loadSpotifyPlayerCache().deviceName)
+    const [queue, setQueue] = useState<QueueTrack[]>(() => loadSpotifyPlayerCache().queue)
     const { pushToast } = useToaster()
-    const [shuffleOn, setShuffleOn] = useState(false)
-    const [repeatMode, setRepeatModeState] = useState<"off" | "track" | "context">("off")
-    const [recentTrack, setRecentTrack] = useState<Track | null>(null)
-    const [accentColor, setAccentColor] = useState<string>("#838383")
+    const [shuffleOn, setShuffleOn] = useState(() => loadSpotifyPlayerCache().shuffleOn)
+    const [repeatMode, setRepeatModeState] = useState<"off" | "track" | "context">(
+        () => loadSpotifyPlayerCache().repeatMode
+    )
+    const [recentTrack, setRecentTrack] = useState<Track | null>(
+        () => loadSpotifyPlayerCache().recentTrack
+    )
+    const [accentColor, setAccentColor] = useState<string>(
+        () => loadSpotifyPlayerCache().accentColor
+    )
     // 시간 보정
     const [progressBaseMs, setProgressBaseMs] = useState(0)
     const [progressSyncAt, setProgressSyncAt] = useState(0)
     const [displayProgressMs, setDisplayProgressMs] = useState(0)
     const [isSeeking, setIsSeeking] = useState(false)
     const [titleMarqueeOn, setTitleMarqueeOn] = useState(false)
-    const [showPlaylist, setShowPlaylist] = useState(true)
+    const [showPlaylist, setShowPlaylist] = useState(() => loadSpotifyPlayerCache().showPlaylist)
+    useEffect(() => {
+        saveSpotifyPlayerCache({ showPlaylist })
+    }, [showPlaylist])
     const progressBaseRef = useRef(0)
     const progressSyncAtRef = useRef(0)
     const displayProgressRef = useRef(0)
@@ -318,20 +404,28 @@ export function MusicPlayer() {
                 const token = (await getValidSpotifyAccessToken()) || envToken
                 if (!mounted) return
                 if (token) {
-                    setAccessToken(token)
+                    setAccessToken((prev) => (prev === token ? prev : token))
+                    saveSpotifyPlayerCache({ accessToken: token })
                     await Promise.all([loadCurrentTrack(token), loadQueue(token)])
                     intervalId = window.setInterval(async () => {
                         const valid = (await getValidSpotifyAccessToken()) || envToken
                         if (!valid) return
                         if (!mounted) return
-                        setAccessToken(valid)
+                        setAccessToken((prev) => (prev === valid ? prev : valid))
                         await Promise.all([loadCurrentTrack(valid), loadQueue(valid)])
                     }, 5000)
                     return
                 }
+                setAccessToken(null)
                 setCurrentTrack(null)
                 setQueue([])
                 setDeviceName("Spotify")
+                saveSpotifyPlayerCache({
+                    accessToken: null,
+                    currentTrack: null,
+                    queue: [],
+                    deviceName: "Spotify",
+                })
             } catch (e) {
                 if (!mounted) return
                 pushToast(e instanceof Error ? e.message : String(e), {
@@ -366,12 +460,18 @@ export function MusicPlayer() {
     const loadRecent = async (token: string) => {
         const t = await getRecentlyPlayedTrack(token)
         if (!t) return
-        setRecentTrack(mapSpotifyTrackToTrack(t, 0))
+        const mapped = mapSpotifyTrackToTrack(t, 0)
+        setRecentTrack((prev) => {
+            if (JSON.stringify(prev) === JSON.stringify(mapped)) return prev
+            saveSpotifyPlayerCache({ recentTrack: mapped })
+            return mapped
+        })
     }
     const loadCurrentTrack = async (token: string) => {
         const state = await getPlayerState(token)
         if (!state || !state.track) {
-            setCurrentTrack(null)
+            setCurrentTrack((prev) => (prev === null ? prev : null))
+            saveSpotifyPlayerCache({ currentTrack: null, isPlaying: false })
             await loadRecent(token)
             return
         }
@@ -380,15 +480,37 @@ export function MusicPlayer() {
             const incomingTrackId = state.track.id
             const trackChanged =
                 typeof incomingTrackId === "string" && incomingTrackId !== lastTrackIdRef.current
-            setCurrentTrack(mapSpotifyTrackToTrack(state.track, state.progress_ms))
-            setIsPlaying(state.is_playing)
-            setDeviceName(state.device?.name || "Device")
+            const mapped = mapSpotifyTrackToTrack(state.track, state.progress_ms)
+            const nextDevice = state.device?.name || "Device"
+            setCurrentTrack((prev) =>
+                prev &&
+                prev.id === mapped.id &&
+                prev.title === mapped.title &&
+                prev.artist === mapped.artist &&
+                prev.coverUrl === mapped.coverUrl &&
+                prev.duration === mapped.duration
+                    ? prev
+                    : mapped
+            )
+            setIsPlaying((prev) => (prev === state.is_playing ? prev : state.is_playing))
+            setDeviceName((prev) => (prev === nextDevice ? prev : nextDevice))
             if (typeof state.shuffle_state === "boolean") {
-                setShuffleOn(state.shuffle_state)
+                setShuffleOn((prev) => (prev === state.shuffle_state ? prev : state.shuffle_state!))
             }
             if (state.repeat_state) {
-                setRepeatModeState(state.repeat_state)
+                setRepeatModeState((prev) =>
+                    prev === state.repeat_state ? prev : state.repeat_state!
+                )
             }
+            saveSpotifyPlayerCache({
+                currentTrack: mapped,
+                isPlaying: state.is_playing,
+                deviceName: nextDevice,
+                ...(typeof state.shuffle_state === "boolean"
+                    ? { shuffleOn: state.shuffle_state }
+                    : {}),
+                ...(state.repeat_state ? { repeatMode: state.repeat_state } : {}),
+            })
             const serverMs = Math.max(0, Math.floor(state.progress_ms))
             const predictedMs =
                 isPlayingRef.current && progressSyncAtRef.current
@@ -504,7 +626,11 @@ export function MusicPlayer() {
             album: t.album.name,
             coverUrl: t.album.images[2]?.url || t.album.images[0]?.url || "",
         }))
-        setQueue(mapped)
+        setQueue((prev) => {
+            if (JSON.stringify(prev) === JSON.stringify(mapped)) return prev
+            saveSpotifyPlayerCache({ queue: mapped })
+            return mapped
+        })
     }
     const handlePlayPause = async () => {
         if (accessToken) {

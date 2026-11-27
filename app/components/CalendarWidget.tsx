@@ -1,4 +1,29 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { AnimatePresence, motion } from "framer-motion"
+import {
+    IoAdd,
+    IoCalendarOutline,
+    IoCheckmark,
+    IoChevronBack,
+    IoChevronDown,
+    IoClose,
+    IoLocationOutline,
+    IoMenuOutline,
+    IoPeopleOutline,
+    IoTimeOutline,
+    IoTrashOutline,
+    IoVideocamOutline,
+} from "react-icons/io5"
+import {
+    createGoogleEvent,
+    deleteGoogleEvent,
+    fetchGoogleAuthStatus,
+    fetchGoogleCalendarData,
+    type GoogleCalendarMeta,
+    type ScheduleItem,
+    updateGoogleEvent,
+} from "../utils/schedule"
+import { useToaster } from "./Toaster"
 
 type DayCell = {
     day: number
@@ -78,9 +103,231 @@ async function fetchKoreanHolidays(year: number, month: number): Promise<Holiday
     }
 }
 
+function pad2(n: number) {
+    return String(n).padStart(2, "0")
+}
+
+function toDateKey(d: Date) {
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+}
+
+function toTimeInputValue(d: Date) {
+    return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+}
+
+function formatKoreanTime(d: Date) {
+    return new Intl.DateTimeFormat("ko-KR", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+    }).format(d)
+}
+
+function formatEventTimeText(item: ScheduleItem) {
+    if (item.allDay) return "하루 종일"
+    const start = new Date(item.start)
+    const end = item.end ? new Date(item.end) : undefined
+    if (end) return `${formatKoreanTime(start)} - ${formatKoreanTime(end)}`
+    return formatKoreanTime(start)
+}
+
+export type SelectOption = {
+    value: string
+    label: string
+    dotColor?: string
+}
+
+export function CustomSelect({
+    value,
+    options,
+    onChange,
+    disabled = false,
+    compact = false,
+    placement = "bottom",
+    align = "left",
+    className = "",
+}: {
+    value: string
+    options: SelectOption[]
+    onChange: (value: string) => void
+    disabled?: boolean
+    compact?: boolean
+    placement?: "bottom" | "top"
+    align?: "left" | "right"
+    className?: string
+}) {
+    const [open, setOpen] = useState(false)
+    const rootRef = useRef<HTMLDivElement | null>(null)
+    const selected = options.find((o) => o.value === value) ?? options[0]
+
+    useEffect(() => {
+        if (!open) return
+        const onDown = (e: MouseEvent) => {
+            if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+                setOpen(false)
+            }
+        }
+        document.addEventListener("mousedown", onDown)
+        return () => document.removeEventListener("mousedown", onDown)
+    }, [open])
+
+    return (
+        <div ref={rootRef} className={`relative ${className}`}>
+            <button
+                type="button"
+                disabled={disabled}
+                onClick={() => !disabled && setOpen((v) => !v)}
+                className={`w-full flex items-center justify-between gap-2 rounded-xl bg-white/[0.07] hover:bg-white/[0.11] ring-1 ring-white/15 text-white transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
+                    compact ? "px-2.5 py-1 text-[11px]" : "px-3 py-1.5 text-xs"
+                }`}
+            >
+                <span className="flex items-center gap-2 min-w-0">
+                    {selected?.dotColor ? (
+                        <span
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ backgroundColor: selected.dotColor }}
+                        />
+                    ) : null}
+                    <span className="truncate">{selected?.label ?? ""}</span>
+                </span>
+                <IoChevronDown
+                    className={`w-3.5 h-3.5 text-white/55 shrink-0 transition-transform ${
+                        open ? "rotate-180" : ""
+                    }`}
+                />
+            </button>
+
+            <AnimatePresence>
+                {open ? (
+                    <motion.div
+                        initial={{ opacity: 0, y: placement === "top" ? 4 : -4, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: placement === "top" ? 4 : -4, scale: 0.98 }}
+                        transition={{ duration: 0.12 }}
+                        className={`absolute z-50 w-max min-w-full max-w-[240px] max-h-44 overflow-y-auto no-scrollbar rounded-xl bg-[#232836] border border-white/15 shadow-2xl p-1 ${
+                            placement === "top" ? "bottom-full mb-1.5" : "top-full mt-1.5"
+                        } ${align === "right" ? "right-0" : "left-0"}`}
+                    >
+                        {options.map((opt) => {
+                            const active = opt.value === value
+                            return (
+                                <button
+                                    key={opt.value}
+                                    type="button"
+                                    onClick={() => {
+                                        onChange(opt.value)
+                                        setOpen(false)
+                                    }}
+                                    className={`w-full flex items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left transition cursor-pointer ${
+                                        compact ? "text-[11px]" : "text-xs"
+                                    } ${
+                                        active
+                                            ? "bg-[#8AB4F8]/20 text-[#8AB4F8] font-semibold"
+                                            : "text-white/85 hover:bg-white/[0.08]"
+                                    }`}
+                                >
+                                    <span className="flex items-center gap-2 min-w-0">
+                                        {opt.dotColor ? (
+                                            <span
+                                                className="w-2 h-2 rounded-full shrink-0"
+                                                style={{ backgroundColor: opt.dotColor }}
+                                            />
+                                        ) : null}
+                                        <span className="truncate">{opt.label}</span>
+                                    </span>
+                                    {active ? (
+                                        <IoCheckmark className="w-3.5 h-3.5 shrink-0" />
+                                    ) : null}
+                                </button>
+                            )
+                        })}
+                    </motion.div>
+                ) : null}
+            </AnimatePresence>
+        </div>
+    )
+}
+
+type SidebarForm = {
+    mode: "create" | "edit"
+    eventId?: string
+    calendarId: string
+    title: string
+    startDate: string
+    endDate: string
+    startTime: string
+    endTime: string
+    allDay: boolean
+    location: string
+    description: string
+    attendees: string[]
+    attendeeInput: string
+    addGoogleMeet: boolean
+    hangoutLink?: string
+    recurrence: "" | "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY"
+    reminderMinutes: number | null
+    editingTime: boolean
+}
+
+const CALENDAR_CACHE_KEY = "dashboard.calendar.cache.v1"
+
+type CalendarCache = {
+    connected: boolean
+    calendars: GoogleCalendarMeta[]
+    events: ScheduleItem[]
+    holidays: number[]
+}
+
+let memoryCalendarCache: CalendarCache | null = null
+
+function loadCalendarCache(): CalendarCache {
+    if (memoryCalendarCache) return memoryCalendarCache
+    if (typeof window !== "undefined") {
+        try {
+            const raw = localStorage.getItem(CALENDAR_CACHE_KEY)
+            if (raw) {
+                const parsed = JSON.parse(raw) as Partial<CalendarCache>
+                const cache: CalendarCache = {
+                    connected: Boolean(parsed.connected),
+                    calendars: Array.isArray(parsed.calendars) ? parsed.calendars : [],
+                    events: Array.isArray(parsed.events) ? parsed.events : [],
+                    holidays: Array.isArray(parsed.holidays) ? parsed.holidays : [],
+                }
+                memoryCalendarCache = cache
+                return cache
+            }
+        } catch {
+            // ignore storage errors
+        }
+    }
+    return { connected: false, calendars: [], events: [], holidays: [] }
+}
+
+function saveCalendarCache(patch: Partial<CalendarCache>) {
+    const next: CalendarCache = { ...loadCalendarCache(), ...patch }
+    memoryCalendarCache = next
+    if (typeof window === "undefined") return
+    try {
+        localStorage.setItem(CALENDAR_CACHE_KEY, JSON.stringify(next))
+    } catch {
+        // ignore storage errors
+    }
+}
+
 export function CalendarWidget() {
+    const { pushToast } = useToaster()
     const [now, setNow] = useState(() => new Date())
-    const [holidays, setHolidays] = useState<HolidaySet>(new Set())
+    const [holidays, setHolidays] = useState<HolidaySet>(
+        () => new Set(loadCalendarCache().holidays)
+    )
+    const [connected, setConnected] = useState(() => loadCalendarCache().connected)
+    const [calendars, setCalendars] = useState<GoogleCalendarMeta[]>(
+        () => loadCalendarCache().calendars
+    )
+    const [events, setEvents] = useState<ScheduleItem[]>(() => loadCalendarCache().events)
+    const [selectedDay, setSelectedDay] = useState<number | null>(null)
+    const [form, setForm] = useState<SidebarForm | null>(null)
+    const [submitting, setSubmitting] = useState(false)
     useEffect(() => {
         const now = new Date()
 
@@ -111,8 +358,204 @@ export function CalendarWidget() {
     const day = String(now.getDate()).padStart(2, "0")
 
     useEffect(() => {
-        fetchKoreanHolidays(year, now.getMonth() + 1).then(setHolidays)
+        fetchKoreanHolidays(year, now.getMonth() + 1).then((next) => {
+            const nextArr = Array.from(next).sort((a, b) => a - b)
+            setHolidays((prev) => {
+                const prevArr = Array.from(prev).sort((a, b) => a - b)
+                if (JSON.stringify(prevArr) === JSON.stringify(nextArr)) return prev
+                saveCalendarCache({ holidays: nextArr })
+                return next
+            })
+        })
     }, [year, now.getMonth()])
+
+    const loadGoogleCalendar = useCallback(async () => {
+        const auth = await fetchGoogleAuthStatus()
+        setConnected((prev) => (prev === auth.connected ? prev : auth.connected))
+
+        if (!auth.connected) {
+            setCalendars((prev) => (prev.length === 0 ? prev : []))
+            setEvents((prev) => (prev.length === 0 ? prev : []))
+            saveCalendarCache({ connected: false, calendars: [], events: [] })
+            return
+        }
+
+        const mStart = new Date(year, now.getMonth(), 1, 0, 0, 0).toISOString()
+        const mEnd = new Date(year, now.getMonth() + 1, 0, 23, 59, 59).toISOString()
+        const data = await fetchGoogleCalendarData({ timeMin: mStart, timeMax: mEnd })
+
+        setCalendars((prev) =>
+            JSON.stringify(prev) === JSON.stringify(data.calendars) ? prev : data.calendars
+        )
+        setEvents((prev) =>
+            JSON.stringify(prev) === JSON.stringify(data.events) ? prev : data.events
+        )
+        saveCalendarCache({
+            connected: true,
+            calendars: data.calendars,
+            events: data.events,
+        })
+    }, [year, now.getMonth()])
+
+    useEffect(() => {
+        void loadGoogleCalendar()
+        const interval = window.setInterval(() => {
+            void loadGoogleCalendar()
+        }, 60 * 1000)
+        return () => window.clearInterval(interval)
+    }, [loadGoogleCalendar])
+
+    const eventsByDay = useMemo(() => {
+        const map = new Map<number, ScheduleItem[]>()
+        const targetMonth = now.getMonth()
+        for (const ev of events) {
+            const start = new Date(ev.start)
+            if (!Number.isFinite(start.getTime())) continue
+            if (start.getFullYear() === year && start.getMonth() === targetMonth) {
+                const d = start.getDate()
+                const list = map.get(d) ?? []
+                list.push(ev)
+                map.set(d, list)
+            }
+        }
+        return map
+    }, [events, year, now.getMonth()])
+
+    const selectedDateObj = useMemo(
+        () => (selectedDay != null ? new Date(year, now.getMonth(), selectedDay) : null),
+        [selectedDay, year, now.getMonth()]
+    )
+
+    const selectedDayEvents = useMemo(
+        () => (selectedDay != null ? (eventsByDay.get(selectedDay) ?? []) : []),
+        [selectedDay, eventsByDay]
+    )
+
+    const writableCalendars = useMemo(
+        () => calendars.filter((c) => c.accessRole === "owner" || c.accessRole === "writer"),
+        [calendars]
+    )
+
+    const handleSelectDay = (dayNum: number) => {
+        if (!connected) return
+        setSelectedDay(dayNum)
+        setForm(null)
+    }
+
+    const openCreateForm = () => {
+        if (!selectedDateObj) return
+        const dateStr = toDateKey(selectedDateObj)
+        const defaultCal =
+            writableCalendars.find((c) => c.primary)?.id ?? writableCalendars[0]?.id ?? "primary"
+        setForm({
+            mode: "create",
+            calendarId: defaultCal,
+            title: "",
+            startDate: dateStr,
+            endDate: dateStr,
+            startTime: "10:30",
+            endTime: "11:45",
+            allDay: false,
+            location: "",
+            description: "",
+            attendees: [],
+            attendeeInput: "",
+            addGoogleMeet: false,
+            recurrence: "",
+            reminderMinutes: 30,
+            editingTime: false,
+        })
+    }
+
+    const openEditForm = (item: ScheduleItem) => {
+        if (!item.id) return
+        const start = new Date(item.start)
+        const end = item.end ? new Date(item.end) : new Date(start.getTime() + 60 * 60 * 1000)
+        setForm({
+            mode: "edit",
+            eventId: item.id,
+            calendarId: item.calendarId || "primary",
+            title: item.title === "(제목 없음)" ? "" : item.title,
+            startDate: toDateKey(start),
+            endDate: toDateKey(end),
+            startTime: toTimeInputValue(start),
+            endTime: toTimeInputValue(end),
+            allDay: Boolean(item.allDay),
+            location: item.location || "",
+            description: item.description || "",
+            attendees: item.attendees ?? [],
+            attendeeInput: "",
+            addGoogleMeet: false,
+            hangoutLink: item.hangoutLink,
+            recurrence: "",
+            reminderMinutes: 30,
+            editingTime: false,
+        })
+    }
+
+    const handleSaveForm = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!form || !form.title.trim()) {
+            pushToast("일정 제목을 입력해 주세요.", { kind: "error" })
+            return
+        }
+        const pendingAttendee = form.attendeeInput.trim()
+        const finalAttendees =
+            pendingAttendee && pendingAttendee.includes("@")
+                ? Array.from(new Set([...form.attendees, pendingAttendee]))
+                : form.attendees
+
+        setSubmitting(true)
+        try {
+            const payload = {
+                calendarId: form.calendarId,
+                title: form.title.trim(),
+                startDate: form.startDate,
+                endDate: form.endDate,
+                startTime: form.startTime,
+                endTime: form.endTime,
+                allDay: form.allDay,
+                location: form.location.trim() || undefined,
+                description: form.description.trim() || undefined,
+                attendees: finalAttendees.length > 0 ? finalAttendees : undefined,
+                addGoogleMeet: form.addGoogleMeet || undefined,
+                recurrence: form.recurrence || undefined,
+                reminderMinutes: form.reminderMinutes,
+            }
+            if (form.mode === "create") {
+                await createGoogleEvent(payload)
+                pushToast("일정이 추가되었습니다.", { kind: "success" })
+            } else if (form.eventId) {
+                await updateGoogleEvent({ ...payload, eventId: form.eventId })
+                pushToast("일정이 수정되었습니다.", { kind: "success" })
+            }
+            setForm(null)
+            await loadGoogleCalendar()
+        } catch (err) {
+            pushToast(err instanceof Error ? err.message : "저장에 실패했습니다.", {
+                kind: "error",
+            })
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
+    const handleDeleteForm = async () => {
+        if (!form || form.mode !== "edit" || !form.eventId) return
+        setSubmitting(true)
+        try {
+            await deleteGoogleEvent(form.calendarId, form.eventId)
+            pushToast("일정이 삭제되었습니다.", { kind: "success" })
+            setForm(null)
+            await loadGoogleCalendar()
+        } catch (err) {
+            pushToast(err instanceof Error ? err.message : "삭제에 실패했습니다.", {
+                kind: "error",
+            })
+        } finally {
+            setSubmitting(false)
+        }
+    }
 
     const weekdayNames = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"]
 
@@ -193,14 +636,40 @@ export function CalendarWidget() {
                                 }
 
                                 if (isSelected) {
+                                    const dayEvs = eventsByDay.get(cell.day) ?? []
+                                    const isSidebarSelected = selectedDay === cell.day
                                     return (
                                         <div
                                             key={idx}
-                                            className="flex flex-col items-center justify-center"
+                                            onClick={() => handleSelectDay(cell.day)}
+                                            data-disable-widget-swipe={connected ? "true" : undefined}
+                                            className={`flex flex-col items-center justify-center gap-1 ${
+                                                connected ? "cursor-pointer" : ""
+                                            }`}
                                         >
-                                            <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-[#FF453A] text-white flex items-center justify-center text-[clamp(1rem,1.9vw,1.6rem)] font-extrabold tabular-nums">
+                                            <div
+                                                className={`w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-[#FF453A] text-white flex items-center justify-center text-[clamp(1rem,1.9vw,1.6rem)] font-extrabold tabular-nums transition ${
+                                                    isSidebarSelected
+                                                        ? "ring-2 ring-white ring-offset-2 ring-offset-[#1b1b1f]"
+                                                        : ""
+                                                }`}
+                                            >
                                                 {cell.day}
                                             </div>
+                                            {dayEvs.length > 0 ? (
+                                                <div className="flex items-center gap-0.5">
+                                                    {dayEvs.slice(0, 3).map((ev, i) => (
+                                                        <span
+                                                            key={i}
+                                                            className="w-1.5 h-1.5 rounded-full"
+                                                            style={{
+                                                                backgroundColor:
+                                                                    ev.color || "#6E8BFF",
+                                                            }}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            ) : null}
                                         </div>
                                     )
                                 }
@@ -211,20 +680,45 @@ export function CalendarWidget() {
                                         : isSaturday
                                           ? "text-[#64B5F6]"
                                           : "text-white/90"
+                                const dayEvs = eventsByDay.get(cell.day) ?? []
+                                const isSidebarSelected = selectedDay === cell.day
 
                                 return (
                                     <div
                                         key={idx}
-                                        className="flex flex-col items-center justify-center gap-1"
+                                        onClick={() => handleSelectDay(cell.day)}
+                                        data-disable-widget-swipe={connected ? "true" : undefined}
+                                        className={`flex flex-col items-center justify-center gap-1 rounded-2xl transition ${
+                                            connected
+                                                ? "cursor-pointer hover:bg-white/[0.06]"
+                                                : ""
+                                        } ${
+                                            isSidebarSelected
+                                                ? "bg-white/[0.1] ring-1 ring-[#6E8BFF]/60"
+                                                : ""
+                                        }`}
                                     >
                                         <span
                                             className={`text-[clamp(0.95rem,1.8vw,1.55rem)] font-bold tabular-nums leading-none ${textColor}`}
                                         >
                                             {cell.day}
                                         </span>
-                                        {isHoliday && (
-                                            <span className="w-1.5 h-1.5 rounded-full bg-[#FF6B6B]" />
-                                        )}
+                                        {isHoliday || dayEvs.length > 0 ? (
+                                            <div className="flex items-center gap-0.5">
+                                                {isHoliday && (
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-[#FF6B6B]" />
+                                                )}
+                                                {dayEvs.slice(0, 3).map((ev, i) => (
+                                                    <span
+                                                        key={i}
+                                                        className="w-1.5 h-1.5 rounded-full"
+                                                        style={{
+                                                            backgroundColor: ev.color || "#6E8BFF",
+                                                        }}
+                                                    />
+                                                ))}
+                                            </div>
+                                        ) : null}
                                     </div>
                                 )
                             })}
@@ -232,6 +726,492 @@ export function CalendarWidget() {
                     </div>
                 </div>
             </div>
+
+            {/* 오른쪽 일정 사이드바 */}
+            <AnimatePresence>
+                {connected && selectedDateObj ? (
+                    <>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.18 }}
+                            onClick={() => {
+                                setSelectedDay(null)
+                                setForm(null)
+                            }}
+                            data-disable-widget-swipe="true"
+                            className="absolute inset-0 z-30 bg-black/45 backdrop-blur-[2px]"
+                        />
+                        <motion.aside
+                            initial={{ x: "100%" }}
+                            animate={{ x: 0 }}
+                            exit={{ x: "100%" }}
+                            transition={{ type: "spring", stiffness: 360, damping: 34 }}
+                            data-disable-widget-swipe="true"
+                            className="absolute top-0 right-0 bottom-0 z-40 w-[340px] max-w-[90%] bg-[#1b1f2a] border-l border-white/10 shadow-2xl flex flex-col p-5 text-white"
+                        >
+                            {/* 사이드바 헤더 */}
+                            <div className="flex items-center justify-between pb-3 border-b border-white/10 shrink-0">
+                                <div className="flex items-center gap-2 min-w-0">
+                                    {form ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => setForm(null)}
+                                            className="p-1 rounded-lg hover:bg-white/10 text-white/70 cursor-pointer"
+                                        >
+                                            <IoChevronBack className="w-4 h-4" />
+                                        </button>
+                                    ) : null}
+                                    <div className="truncate">
+                                        <div className="text-sm font-bold">
+                                            {selectedDateObj.getMonth() + 1}월{" "}
+                                            {selectedDateObj.getDate()}일{" "}
+                                            {weekdayNames[selectedDateObj.getDay()]}
+                                        </div>
+                                        <div className="text-xs text-white/45">
+                                            {form
+                                                ? form.mode === "create"
+                                                    ? "새 일정 추가"
+                                                    : "일정 수정"
+                                                : `일정 ${selectedDayEvents.length}건`}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-1">
+                                    {!form ? (
+                                        <button
+                                            type="button"
+                                            onClick={openCreateForm}
+                                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#6E8BFF]/20 hover:bg-[#6E8BFF]/30 text-[#9BB0FF] text-xs font-semibold cursor-pointer"
+                                        >
+                                            <IoAdd className="w-3.5 h-3.5" />
+                                            추가
+                                        </button>
+                                    ) : null}
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSelectedDay(null)
+                                            setForm(null)
+                                        }}
+                                        className="p-1.5 rounded-lg hover:bg-white/10 text-white/60 cursor-pointer"
+                                    >
+                                        <IoClose className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* 사이드바 본문 */}
+                            {form ? (
+                                <form
+                                    onSubmit={handleSaveForm}
+                                    className="flex-1 min-h-0 overflow-y-auto no-scrollbar pt-3 px-0.5 flex flex-col gap-3 text-xs"
+                                >
+                                    {/* 구글 스타일 밑줄 제목 입력 + 일정 칩 */}
+                                    <div className="pl-7 space-y-2.5">
+                                        <input
+                                            type="text"
+                                            placeholder="제목 추가"
+                                            value={form.title}
+                                            onChange={(e) =>
+                                                setForm({ ...form, title: e.target.value })
+                                            }
+                                            className="w-full bg-transparent border-b border-white/25 focus:border-[#8AB4F8] pb-1.5 text-base font-medium text-white placeholder-white/40 outline-none transition"
+                                            autoFocus
+                                        />
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="px-2.5 py-1 rounded-md bg-[#8AB4F8]/20 text-[#8AB4F8] text-[11px] font-semibold">
+                                                일정
+                                            </span>
+                                            {form.allDay ? (
+                                                <span className="px-2 py-1 rounded-md bg-white/[0.06] text-white/60 text-[11px]">
+                                                    종일
+                                                </span>
+                                            ) : null}
+                                        </div>
+                                    </div>
+
+                                    {/* 시간 / 날짜 행 */}
+                                    <div className="flex items-start gap-3">
+                                        <IoTimeOutline className="w-4 h-4 text-white/55 shrink-0 mt-1" />
+                                        <div className="flex-1 min-w-0">
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setForm({
+                                                        ...form,
+                                                        editingTime: !form.editingTime,
+                                                    })
+                                                }
+                                                className="w-full text-left rounded-lg hover:bg-white/[0.06] px-2 py-1 -mx-2 transition cursor-pointer"
+                                            >
+                                                <div className="text-[13px] font-medium text-white/90">
+                                                    {form.startDate}
+                                                    {!form.allDay
+                                                        ? `  ${form.startTime} – ${form.endTime}`
+                                                        : " (하루 종일)"}
+                                                </div>
+                                                <div className="text-[11px] text-white/45 mt-0.5">
+                                                    {form.allDay ? "하루 종일" : "시간 지정"} ·{" "}
+                                                    {form.recurrence === "DAILY"
+                                                        ? "매일 반복"
+                                                        : form.recurrence === "WEEKLY"
+                                                          ? "매주 반복"
+                                                          : form.recurrence === "MONTHLY"
+                                                            ? "매월 반복"
+                                                            : form.recurrence === "YEARLY"
+                                                              ? "매년 반복"
+                                                              : "반복 안함"}
+                                                </div>
+                                            </button>
+
+                                            {form.editingTime ? (
+                                                <div className="mt-2 space-y-2 rounded-xl bg-white/[0.04] p-2.5 ring-1 ring-white/10">
+                                                    <div className="flex items-center justify-between">
+                                                        <label className="flex items-center gap-1.5 text-white/80 cursor-pointer">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={form.allDay}
+                                                                onChange={(e) =>
+                                                                    setForm({
+                                                                        ...form,
+                                                                        allDay: e.target.checked,
+                                                                    })
+                                                                }
+                                                                className="rounded accent-[#8AB4F8]"
+                                                            />
+                                                            하루 종일
+                                                        </label>
+                                                        <CustomSelect
+                                                            compact
+                                                            align="right"
+                                                            className="w-28"
+                                                            value={form.recurrence}
+                                                            options={[
+                                                                { value: "", label: "반복 안함" },
+                                                                { value: "DAILY", label: "매일" },
+                                                                { value: "WEEKLY", label: "매주" },
+                                                                { value: "MONTHLY", label: "매월" },
+                                                                { value: "YEARLY", label: "매년" },
+                                                            ]}
+                                                            onChange={(val) =>
+                                                                setForm({
+                                                                    ...form,
+                                                                    recurrence:
+                                                                        val as SidebarForm["recurrence"],
+                                                                })
+                                                            }
+                                                        />
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-1.5">
+                                                        <input
+                                                            type="date"
+                                                            value={form.startDate}
+                                                            onChange={(e) =>
+                                                                setForm({
+                                                                    ...form,
+                                                                    startDate: e.target.value,
+                                                                })
+                                                            }
+                                                            className="rounded-lg bg-white/[0.07] ring-1 ring-white/15 px-2 py-1 text-white outline-none"
+                                                        />
+                                                        <input
+                                                            type="date"
+                                                            value={form.endDate}
+                                                            onChange={(e) =>
+                                                                setForm({
+                                                                    ...form,
+                                                                    endDate: e.target.value,
+                                                                })
+                                                            }
+                                                            className="rounded-lg bg-white/[0.07] ring-1 ring-white/15 px-2 py-1 text-white outline-none"
+                                                        />
+                                                    </div>
+                                                    {!form.allDay ? (
+                                                        <div className="grid grid-cols-2 gap-1.5">
+                                                            <input
+                                                                type="time"
+                                                                value={form.startTime}
+                                                                onChange={(e) =>
+                                                                    setForm({
+                                                                        ...form,
+                                                                        startTime: e.target.value,
+                                                                    })
+                                                                }
+                                                                className="rounded-lg bg-white/[0.07] ring-1 ring-white/15 px-2 py-1 text-white outline-none"
+                                                            />
+                                                            <input
+                                                                type="time"
+                                                                value={form.endTime}
+                                                                onChange={(e) =>
+                                                                    setForm({
+                                                                        ...form,
+                                                                        endTime: e.target.value,
+                                                                    })
+                                                                }
+                                                                className="rounded-lg bg-white/[0.07] ring-1 ring-white/15 px-2 py-1 text-white outline-none"
+                                                            />
+                                                        </div>
+                                                    ) : null}
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    </div>
+
+                                    {/* 참석자 행 */}
+                                    <div className="flex items-start gap-3">
+                                        <IoPeopleOutline className="w-4 h-4 text-white/55 shrink-0 mt-1.5" />
+                                        <div className="flex-1 min-w-0">
+                                            <input
+                                                type="text"
+                                                placeholder="참석자 추가 (이메일 입력 후 띄어쓰기)"
+                                                value={form.attendeeInput}
+                                                onChange={(e) => {
+                                                    const raw = e.target.value
+                                                    if (/[\s,]/.test(raw)) {
+                                                        const parts = raw
+                                                            .split(/[\s,]+/)
+                                                            .map((s) => s.trim())
+                                                            .filter(Boolean)
+                                                        const validEmails = parts.filter((p) =>
+                                                            p.includes("@")
+                                                        )
+                                                        const lastToken = raw.endsWith(" ") || raw.endsWith(",")
+                                                            ? ""
+                                                            : (parts[parts.length - 1] ?? "")
+                                                        const remain =
+                                                            lastToken && !lastToken.includes("@")
+                                                                ? lastToken
+                                                                : ""
+                                                        setForm({
+                                                            ...form,
+                                                            attendees:
+                                                                validEmails.length > 0
+                                                                    ? Array.from(
+                                                                          new Set([
+                                                                              ...form.attendees,
+                                                                              ...validEmails,
+                                                                          ])
+                                                                      )
+                                                                    : form.attendees,
+                                                            attendeeInput: remain,
+                                                        })
+                                                        return
+                                                    }
+                                                    setForm({
+                                                        ...form,
+                                                        attendeeInput: raw,
+                                                    })
+                                                }}
+                                                className="w-full rounded-lg hover:bg-white/[0.04] focus:bg-white/[0.06] px-2 py-1 -mx-2 text-white placeholder-white/40 outline-none"
+                                            />
+                                            {form.attendees.length > 0 ? (
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                    {form.attendees.map((email) => (
+                                                        <span
+                                                            key={email}
+                                                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/10 text-[11px] text-white/85"
+                                                        >
+                                                            {email}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    setForm({
+                                                                        ...form,
+                                                                        attendees:
+                                                                            form.attendees.filter(
+                                                                                (x) => x !== email
+                                                                            ),
+                                                                    })
+                                                                }
+                                                                className="text-white/50 hover:text-white cursor-pointer"
+                                                            >
+                                                                ×
+                                                            </button>
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    </div>
+
+                                    {/* Google Meet 화상 회의 */}
+                                    <div className="flex items-center gap-3">
+                                        <IoVideocamOutline className="w-4 h-4 text-[#FBCB04] shrink-0" />
+                                        {form.hangoutLink ? (
+                                            <a
+                                                href={form.hangoutLink}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="text-[#8AB4F8] hover:underline truncate text-xs"
+                                            >
+                                                Google Meet 참여 ({form.hangoutLink})
+                                            </a>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setForm({
+                                                        ...form,
+                                                        addGoogleMeet: !form.addGoogleMeet,
+                                                    })
+                                                }
+                                                className={`flex-1 text-left rounded-lg px-2 py-1 -mx-2 transition cursor-pointer ${
+                                                    form.addGoogleMeet
+                                                        ? "bg-[#8AB4F8]/15 text-[#8AB4F8] font-medium"
+                                                        : "hover:bg-white/[0.06] text-white/70"
+                                                }`}
+                                            >
+                                                {form.addGoogleMeet
+                                                    ? "✓ Google Meet 화상 회의 추가됨"
+                                                    : "Google Meet 화상 회의 추가"}
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* 위치 추가 */}
+                                    <div className="flex items-center gap-3">
+                                        <IoLocationOutline className="w-4 h-4 text-white/55 shrink-0" />
+                                        <input
+                                            type="text"
+                                            placeholder="위치 추가"
+                                            value={form.location}
+                                            onChange={(e) =>
+                                                setForm({ ...form, location: e.target.value })
+                                            }
+                                            className="flex-1 rounded-lg hover:bg-white/[0.04] focus:bg-white/[0.06] px-2 py-1 -mx-2 text-white placeholder-white/40 outline-none"
+                                        />
+                                    </div>
+
+                                    {/* 설명 추가 */}
+                                    <div className="flex items-start gap-3">
+                                        <IoMenuOutline className="w-4 h-4 text-white/55 shrink-0 mt-1.5" />
+                                        <textarea
+                                            placeholder="설명 추가"
+                                            rows={2}
+                                            value={form.description}
+                                            onChange={(e) =>
+                                                setForm({ ...form, description: e.target.value })
+                                            }
+                                            className="flex-1 rounded-lg hover:bg-white/[0.04] focus:bg-white/[0.06] px-2 py-1 -mx-2 text-white placeholder-white/40 outline-none resize-none"
+                                        />
+                                    </div>
+
+                                    {/* 캘린더 & 알림 */}
+                                    <div className="flex items-start gap-3">
+                                        <IoCalendarOutline className="w-4 h-4 text-white/55 shrink-0 mt-1.5" />
+                                        <div className="flex-1 min-w-0 grid grid-cols-2 gap-2">
+                                            <CustomSelect
+                                                compact
+                                                placement="top"
+                                                disabled={form.mode === "edit"}
+                                                value={form.calendarId}
+                                                options={(writableCalendars.length > 0
+                                                    ? writableCalendars
+                                                    : calendars
+                                                ).map((c) => ({
+                                                    value: c.id,
+                                                    label: c.summary,
+                                                    dotColor: c.backgroundColor || "#8AB4F8",
+                                                }))}
+                                                onChange={(val) =>
+                                                    setForm({ ...form, calendarId: val })
+                                                }
+                                            />
+                                            <CustomSelect
+                                                compact
+                                                placement="top"
+                                                align="right"
+                                                value={
+                                                    form.reminderMinutes == null
+                                                        ? ""
+                                                        : String(form.reminderMinutes)
+                                                }
+                                                options={[
+                                                    { value: "", label: "기본 알림" },
+                                                    { value: "10", label: "10분 전 알림" },
+                                                    { value: "30", label: "30분 전 알림" },
+                                                    { value: "60", label: "1시간 전 알림" },
+                                                ]}
+                                                onChange={(val) =>
+                                                    setForm({
+                                                        ...form,
+                                                        reminderMinutes:
+                                                            val === "" ? null : Number(val),
+                                                    })
+                                                }
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* 하단 저장 / 삭제 */}
+                                    <div className="flex items-center justify-between pt-2 mt-auto border-t border-white/10">
+                                        {form.mode === "edit" ? (
+                                            <button
+                                                type="button"
+                                                onClick={handleDeleteForm}
+                                                disabled={submitting}
+                                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-red-500/15 hover:bg-red-500/25 text-red-300 font-semibold cursor-pointer disabled:opacity-50"
+                                            >
+                                                <IoTrashOutline className="w-3.5 h-3.5" />
+                                                삭제
+                                            </button>
+                                        ) : (
+                                            <div />
+                                        )}
+                                        <button
+                                            type="submit"
+                                            disabled={submitting}
+                                            className="px-5 py-1.5 rounded-full bg-[#1a73e8] hover:bg-[#1967d2] text-white font-semibold cursor-pointer disabled:opacity-50 transition"
+                                        >
+                                            {submitting ? "저장 중..." : "저장"}
+                                        </button>
+                                    </div>
+                                </form>
+                            ) : (
+                                <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar pt-3 flex flex-col gap-2">
+                                    {selectedDayEvents.length === 0 ? (
+                                        <div className="my-auto text-center text-white/45 text-xs py-8">
+                                            등록된 일정이 없습니다.
+                                        </div>
+                                    ) : (
+                                        selectedDayEvents.map((ev, i) => (
+                                            <button
+                                                key={`${ev.id ?? ev.start}-${i}`}
+                                                type="button"
+                                                onClick={() => openEditForm(ev)}
+                                                className="w-full text-left rounded-2xl bg-white/[0.06] hover:bg-white/[0.11] ring-1 ring-white/10 p-3 transition cursor-pointer flex items-start gap-2.5"
+                                            >
+                                                <span
+                                                    className="w-1.5 h-8 rounded-full shrink-0 mt-0.5"
+                                                    style={{
+                                                        backgroundColor: ev.color || "#6E8BFF",
+                                                    }}
+                                                />
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="text-sm font-bold text-white truncate">
+                                                        {ev.title}
+                                                    </div>
+                                                    <div className="text-xs text-white/55 mt-0.5">
+                                                        {formatEventTimeText(ev)}
+                                                    </div>
+                                                    {ev.location ? (
+                                                        <div className="text-[11px] text-white/40 truncate mt-0.5">
+                                                            {ev.location}
+                                                        </div>
+                                                    ) : null}
+                                                </div>
+                                            </button>
+                                        ))
+                                    )}
+                                </div>
+                            )}
+                        </motion.aside>
+                    </>
+                ) : null}
+            </AnimatePresence>
         </div>
     )
 }
