@@ -18,7 +18,10 @@ import {
     FaPause,
     FaPlay,
     FaRepeat,
+    FaListUl,
+    FaXmark,
 } from "react-icons/fa6"
+import { AnimatePresence, motion } from "framer-motion"
 import { getReadableTextColor, applyOpacity } from "~/utils/colorUtils"
 import {
     getValidSpotifyAccessToken,
@@ -48,6 +51,131 @@ interface QueueTrack {
     album: string
     coverUrl: string
 }
+function LiquidWaveOverlay({
+    color,
+    isPlaying,
+    widthPercent,
+}: {
+    color: string
+    isPlaying: boolean
+    widthPercent: number
+}) {
+    const svgRef = useRef<SVGSVGElement | null>(null)
+    const path1Ref = useRef<SVGPathElement | null>(null)
+    const path2Ref = useRef<SVGPathElement | null>(null)
+    const ampRef = useRef(isPlaying ? 1 : 0)
+    const isPlayingRef = useRef(isPlaying)
+    isPlayingRef.current = isPlaying
+
+    useEffect(() => {
+        let rafId = 0
+        let lastTs = performance.now()
+        let phase = 0
+
+        const H = 26
+
+        // 5차 스무스스텝: 양끝 기울기(1차)와 곡률(2차) 모두 0으로 수렴해 꺾임 없이 유선형 접합
+        const smootherstep = (edge0: number, edge1: number, x: number) => {
+            const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)))
+            return t * t * t * (t * (t * 6 - 15) + 10)
+        }
+
+        const buildPath = (
+            widthPx: number,
+            wavelengthPx: number,
+            phaseOffset: number,
+            speed: number,
+            heightScale: number,
+            t: number,
+            amp: number
+        ) => {
+            const steps = Math.max(64, Math.min(160, Math.round(widthPx / 4)))
+            const fadePx = Math.min(96, widthPx * 0.28)
+            const k = (Math.PI * 2) / wavelengthPx
+            const pts: [number, number][] = []
+
+            for (let i = 0; i <= steps; i++) {
+                const u = i / steps
+                const xPx = u * widthPx
+                const xView = u * 400
+                const edgeFade =
+                    smootherstep(0, fadePx, xPx) * smootherstep(0, fadePx, widthPx - xPx)
+                const primary = 0.5 + 0.5 * Math.sin(xPx * k - t * speed + phaseOffset)
+                const secondary =
+                    0.5 + 0.5 * Math.sin(xPx * (k * 0.53) - t * (speed * 0.65) + phaseOffset * 1.7)
+                const h = (0.28 + 0.52 * primary + 0.2 * secondary) * heightScale
+                const y = H - edgeFade * h * (H - 2) * amp
+                pts.push([xView, y])
+            }
+
+            let d = `M 0 ${H + 1} L ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`
+            for (let i = 1; i < pts.length - 1; i++) {
+                const midX = (pts[i][0] + pts[i + 1][0]) / 2
+                const midY = (pts[i][1] + pts[i + 1][1]) / 2
+                d += ` Q ${pts[i][0].toFixed(1)} ${pts[i][1].toFixed(1)} ${midX.toFixed(1)} ${midY.toFixed(1)}`
+            }
+            const last = pts[pts.length - 1]
+            d += ` L ${last[0].toFixed(1)} ${last[1].toFixed(1)} L 400 ${H + 1} Z`
+            return d
+        }
+
+        const loop = (now: number) => {
+            const dt = Math.min((now - lastTs) / 1000, 0.05)
+            lastTs = now
+
+            const targetAmp = isPlayingRef.current ? 1 : 0
+            ampRef.current += (targetAmp - ampRef.current) * Math.min(1, dt * 4)
+
+            const widthPx = svgRef.current?.clientWidth ?? 0
+            const widthGain = smootherstep(18, 120, widthPx)
+            const effectiveAmp = ampRef.current * widthGain
+
+            if (effectiveAmp > 0.004 && widthPx > 18) {
+                phase += dt * 0.9
+                if (path1Ref.current) {
+                    path1Ref.current.setAttribute(
+                        "d",
+                        buildPath(widthPx, 175, 0, 1.35, 0.95, phase, effectiveAmp)
+                    )
+                }
+                if (path2Ref.current) {
+                    path2Ref.current.setAttribute(
+                        "d",
+                        buildPath(widthPx, 220, Math.PI, 0.95, 0.88, phase, effectiveAmp)
+                    )
+                }
+            } else {
+                const flat = `M 0 ${H + 2} L 400 ${H + 2} Z`
+                if (path1Ref.current) path1Ref.current.setAttribute("d", flat)
+                if (path2Ref.current) path2Ref.current.setAttribute("d", flat)
+            }
+
+            rafId = requestAnimationFrame(loop)
+        }
+
+        rafId = requestAnimationFrame(loop)
+        return () => cancelAnimationFrame(rafId)
+    }, [])
+
+    if (widthPercent <= 0.5) return null
+
+    return (
+        <svg
+            ref={svgRef}
+            viewBox="0 0 400 27"
+            preserveAspectRatio="none"
+            className="absolute left-[5px] bottom-[calc(50%+4px)] pointer-events-none overflow-visible"
+            style={{
+                width: `max(0px, calc(${widthPercent}% - 5px))`,
+                height: "16px",
+            }}
+        >
+            <path ref={path2Ref} fill={color} fillOpacity={0.42} />
+            <path ref={path1Ref} fill={color} fillOpacity={0.84} />
+        </svg>
+    )
+}
+
 export function MusicPlayer() {
     const [isPlaying, setIsPlaying] = useState(false)
     const [currentTrack, setCurrentTrack] = useState<Track | null>(null)
@@ -65,6 +193,7 @@ export function MusicPlayer() {
     const [displayProgressMs, setDisplayProgressMs] = useState(0)
     const [isSeeking, setIsSeeking] = useState(false)
     const [titleMarqueeOn, setTitleMarqueeOn] = useState(false)
+    const [showPlaylist, setShowPlaylist] = useState(true)
     const progressBaseRef = useRef(0)
     const progressSyncAtRef = useRef(0)
     const displayProgressRef = useRef(0)
@@ -453,17 +582,28 @@ export function MusicPlayer() {
     }
     if (!accessToken) {
         return (
-            <div className="w-[860px] h-[440px] bg-[#4b4b4b] rounded-[30px] flex items-center justify-center">
+            <div className="w-full h-full bg-gradient-to-br from-[#14171a] via-[#121214] to-[#0b0d0e] relative flex flex-col items-center justify-center gap-6 px-6 text-center overflow-hidden">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl flex items-center justify-center">
+                    <FaSpotify className="w-9 h-9 sm:w-11 sm:h-11 text-[#1DB954]" />
+                </div>
+                <div>
+                    <h2 className="text-white text-2xl sm:text-3xl font-bold tracking-tight">
+                        Spotify 연결
+                    </h2>
+                    <p className="mt-2 text-white/50 text-sm sm:text-base">
+                        계정을 연결하면 재생 중인 음악과 플레이리스트를 제어할 수 있습니다
+                    </p>
+                </div>
                 <button
                     type="button"
+                    onPointerDown={(e) => e.stopPropagation()}
                     onClick={async () => {
                         await logoutSpotify()
                         setAccessToken(null)
                         startSpotifyLogin()
                     }}
-                    className="flex items-center gap-4 px-10 py-6 rounded-[24px] bg-[#30D866] text-[#000] text-2xl font-bold"
+                    className="mt-1 flex items-center gap-3 px-7 py-3.5 rounded-full bg-[#1DB954] hover:bg-[#1ed760] active:scale-[0.98] text-black text-base sm:text-lg font-bold transition-all cursor-pointer"
                 >
-                    <FaSpotify className="w-10 h-10" />
                     Spotify 로그인
                 </button>
             </div>
@@ -471,47 +611,58 @@ export function MusicPlayer() {
     }
     if (!currentTrack) {
         return (
-            <div className="w-[860px] h-[440px] bg-[#4b4b4b] rounded-[30px] flex items-center justify-center">
+            <div className="w-full h-full bg-[#161618] relative flex items-center justify-center overflow-hidden">
                 {recentTrack ? (
-                    <div className="w-[860px] h-[440px] rounded-[26px] overflow-hidden relative">
+                    <>
                         {recentTrack.coverUrl ? (
                             <div
-                                className="absolute inset-0 bg-cover bg-center"
+                                className="absolute inset-0 bg-cover bg-center scale-110 blur-3xl opacity-45"
                                 style={{
                                     backgroundImage: `url(${recentTrack.coverUrl})`,
                                 }}
                             />
                         ) : null}
-                        <div className="absolute inset-0 bg-black/35" />
-                        <div className="absolute left-[36px] top-[28px] flex items-center gap-3 text-white">
-                            <FaSpotify className="w-7 h-7" />
-                            <div className="text-[12px] font-bold">최근 재생</div>
-                        </div>
-                        <div className="absolute left-[36px] top-[86px]">
-                            <div className="text-white text-[36px] font-normal leading-none">
-                                {recentTrack.title}
+                        <div className="absolute inset-0 bg-black/45" />
+                        <div className="relative z-10 max-w-[1100px] w-full px-8 sm:px-16 flex flex-col sm:flex-row items-center gap-8 sm:gap-12">
+                            {recentTrack.coverUrl && (
+                                <img
+                                    src={recentTrack.coverUrl}
+                                    alt={recentTrack.album}
+                                    className="w-48 h-48 sm:w-64 sm:h-64 rounded-3xl shadow-2xl object-cover ring-1 ring-white/15 shrink-0"
+                                />
+                            )}
+                            <div className="min-w-0 text-center sm:text-left">
+                                <div className="inline-flex items-center gap-2 text-white/70 text-xs sm:text-sm font-semibold mb-3">
+                                    <FaSpotify className="w-5 h-5 text-[#1DB954]" />
+                                    <span>최근 재생</span>
+                                </div>
+                                <div className="text-white text-[clamp(1.75rem,4vw,3.25rem)] font-bold leading-tight truncate">
+                                    {recentTrack.title}
+                                </div>
+                                <div className="mt-2 text-white/65 text-base sm:text-xl font-medium truncate">
+                                    {recentTrack.artist}
+                                </div>
+                                {accessToken && (
+                                    <button
+                                        type="button"
+                                        onClick={async () => {
+                                            await logoutSpotify()
+                                            setAccessToken(null)
+                                        }}
+                                        className="mt-6 px-4 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white/80 text-xs font-semibold transition-colors cursor-pointer"
+                                        aria-label="Logout"
+                                    >
+                                        로그아웃
+                                    </button>
+                                )}
                             </div>
-                            <div className="mt-3 text-[#eee] text-[16px] font-bold leading-none">
-                                {recentTrack.artist}
-                            </div>
                         </div>
-
-                        {accessToken ? (
-                            <button
-                                type="button"
-                                onClick={async () => {
-                                    await logoutSpotify()
-                                    setAccessToken(null)
-                                }}
-                                className="absolute top-[30px] right-[50px] text-white text-[12px] font-bold opacity-70"
-                                aria-label="Logout"
-                            >
-                                로그아웃
-                            </button>
-                        ) : null}
-                    </div>
+                    </>
                 ) : (
-                    <div className="text-white/60 text-lg">음악 재생 중이 아닙니다</div>
+                    <div className="flex flex-col items-center gap-3 text-white/50">
+                        <FaSpotify className="w-10 h-10 opacity-60" />
+                        <div className="text-lg font-medium">음악 재생 중이 아닙니다</div>
+                    </div>
                 )}
             </div>
         )
@@ -522,390 +673,428 @@ export function MusicPlayer() {
     const safeRatio = Number.isFinite(progressPercent)
         ? Math.min(100, Math.max(0, progressPercent))
         : 0
-    const BAR_W = 760
-    const KNOB = 22
-    const barX = 50
-    const knobLeft = barX + (BAR_W * safeRatio) / 100 - KNOB / 2
     const nextSong = queue[0]
     const listItems = queue.slice(0, 12)
     const nextSongLabel = nextSong ? truncateText(nextSong.title, 30) : "-"
     return (
         <div
-            className="w-[860px] h-[440px] overflow-y-auto overflow-x-hidden no-scrollbar touch-pan-y select-none overscroll-x-none"
+            className="w-full h-full bg-[#121214] overflow-hidden relative select-none"
             data-disable-widget-swipe="true"
-            style={{
-                WebkitOverflowScrolling: "touch",
-                touchAction: "pan-y",
-            }}
         >
-            <div className="relative w-[860px] h-[810px]">
-                <div className="absolute left-0 top-0 w-[860px] h-[350px] rounded-[45px] overflow-hidden">
-                    {currentTrack.coverUrl ? (
-                        <div
-                            className="absolute inset-0 bg-cover bg-center"
-                            style={{
-                                backgroundImage: `url(${currentTrack.coverUrl})`,
-                            }}
-                        />
-                    ) : null}
-                    <div className="absolute inset-0 bg-black/25" />
-                    <div className="absolute left-[50px] top-[30px] flex items-center gap-2 text-white">
-                        <FaSpotify className="w-7 h-7" />
-                        <div className="text-[14px] font-bold">{deviceName}</div>
+            {/* 풀스크린 블러 앨범 배경 (재생 시 아주 느리게 유영) */}
+            {currentTrack.coverUrl ? (
+                <div
+                    className="absolute inset-0 bg-cover bg-center blur-3xl opacity-55 ambient-bg-drift"
+                    style={{
+                        backgroundImage: `url(${currentTrack.coverUrl})`,
+                        animationPlayState: isPlaying ? "running" : "paused",
+                    }}
+                />
+            ) : null}
+            <div className="absolute inset-0 bg-gradient-to-br from-black/45 via-black/35 to-black/65" />
+
+            {/* 메인 풀페이지 레이아웃 */}
+            <div className="relative z-10 h-full w-full max-w-[1440px] mx-auto px-6 sm:px-14 lg:px-20 py-14 sm:py-16 flex flex-col lg:flex-row items-center justify-center gap-6 lg:gap-0">
+                {/* 좌측(또는 중앙): Now Playing */}
+                <div
+                    className={`flex flex-col justify-center min-w-0 w-full flex-1 transition-all duration-300 ${
+                        showPlaylist
+                            ? "gap-6 max-w-[820px]"
+                            : "gap-8 sm:gap-10 max-w-[1240px]"
+                    }`}
+                >
+                    {/* 상단 디바이스 + 플레이리스트 토글 + 로그아웃 */}
+                    <div
+                        className="flex items-center justify-between gap-3"
+                        onPointerDown={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center gap-2.5 text-white/85 min-w-0">
+                            <FaSpotify className="w-6 h-6 text-[#1DB954] shrink-0" />
+                            <span className="text-sm sm:text-base font-semibold truncate">
+                                {deviceName}
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => setShowPlaylist((prev) => !prev)}
+                                className={`flex items-center gap-1.5 text-xs font-semibold px-3.5 py-1.5 rounded-full ring-1 transition-colors cursor-pointer ${
+                                    showPlaylist
+                                        ? "bg-white text-neutral-950 ring-white"
+                                        : "bg-white/10 hover:bg-white/15 text-white/80 hover:text-white ring-white/15"
+                                }`}
+                                aria-label={showPlaylist ? "플레이리스트 접기" : "플레이리스트 열기"}
+                            >
+                                <span>플레이리스트</span>
+                            </button>
+                            {accessToken ? (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        logoutSpotify()
+                                        setAccessToken(null)
+                                    }}
+                                    className="text-white/60 hover:text-white text-xs font-semibold px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/15 transition-colors cursor-pointer"
+                                    aria-label="Logout"
+                                >
+                                    로그아웃
+                                </button>
+                            ) : null}
+                        </div>
                     </div>
-                    <div className="absolute left-[48px] top-[90px] w-[760px]">
-                        <div
-                            ref={titleWrapRef}
-                            className="text-white text-[40px] font-normal leading-none overflow-hidden whitespace-nowrap"
-                        >
-                            {titleMarqueeOn ? (
-                                <div className="marquee">
-                                    <div ref={titleMarqueeInnerRef} className="marquee__inner">
-                                        <div ref={titleMeasureRef} className="marquee__block">
-                                            {currentTrack.title}
-                                        </div>
-                                        <div className="marquee__block" aria-hidden="true">
-                                            {currentTrack.title}
+
+                    {/* 앨범 아트 + 곡 정보 */}
+                    <div
+                        className={`flex items-center min-w-0 transition-all duration-300 ${
+                            showPlaylist ? "gap-6 sm:gap-8" : "gap-7 sm:gap-12 lg:gap-14"
+                        }`}
+                    >
+                        {currentTrack.coverUrl ? (
+                            <img
+                                src={currentTrack.coverUrl}
+                                alt={currentTrack.album}
+                                className={`rounded-3xl object-cover shadow-[0_24px_60px_rgba(0,0,0,0.55)] ring-1 ring-white/15 shrink-0 transition-all duration-300 ${
+                                    showPlaylist
+                                        ? "w-28 h-28 sm:w-44 sm:h-44 lg:w-52 lg:h-52"
+                                        : "w-36 h-36 sm:w-56 sm:h-56 lg:w-[min(44svh,360px)] lg:h-[min(44svh,360px)]"
+                                }`}
+                            />
+                        ) : null}
+                        <div className="min-w-0 flex-1">
+                            <div
+                                ref={titleWrapRef}
+                                className={`text-white font-bold leading-tight overflow-hidden whitespace-nowrap transition-all duration-300 ${
+                                    showPlaylist
+                                        ? "text-[clamp(1.6rem,3.4vw,3rem)]"
+                                        : "text-[clamp(2rem,4.5vw,4.25rem)]"
+                                }`}
+                            >
+                                {titleMarqueeOn ? (
+                                    <div className="marquee">
+                                        <div ref={titleMarqueeInnerRef} className="marquee__inner">
+                                            <div ref={titleMeasureRef} className="marquee__block">
+                                                {currentTrack.title}
+                                            </div>
+                                            <div className="marquee__block" aria-hidden="true">
+                                                {currentTrack.title}
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            ) : (
-                                <div ref={titleMeasureRef} className="whitespace-nowrap">
-                                    {currentTrack.title}
-                                </div>
-                            )}
-                        </div>
-                        <div className="mt-3 text-[#eee] text-[16px] font-bold leading-none truncate">
-                            {currentTrack.artist}
+                                ) : (
+                                    <div ref={titleMeasureRef} className="truncate">
+                                        {currentTrack.title}
+                                    </div>
+                                )}
+                            </div>
+                            <div
+                                className={`mt-2 sm:mt-3 text-white/75 font-semibold truncate transition-all duration-300 ${
+                                    showPlaylist
+                                        ? "text-[clamp(1rem,1.6vw,1.35rem)]"
+                                        : "text-[clamp(1.2rem,2.2vw,1.9rem)]"
+                                }`}
+                            >
+                                {currentTrack.artist}
+                            </div>
+                            <div
+                                className={`mt-1.5 text-white/45 truncate transition-all duration-300 ${
+                                    showPlaylist ? "text-xs sm:text-sm" : "text-sm sm:text-base"
+                                }`}
+                            >
+                                {currentTrack.album}
+                            </div>
                         </div>
                     </div>
-                    <div className="absolute left-0 top-[180px] w-full">
-                        <div className="absolute left-[50px] top-[5px] h-[14px] w-[760px] rounded-[50px] border border-[rgba(0,0,0,0.12)] bg-[rgba(238,238,238,0.5)]" />
-                        <div
-                            className="absolute left-[50px] top-[5px] h-[14px] rounded-l-[50px]"
-                            style={{
-                                width: `${(BAR_W * safeRatio) / 100}px`,
-                                backgroundColor: accentColor,
-                            }}
-                        />
-                        <div
-                            className={`absolute left-[50px] top-[-9px] h-[14px] pointer-events-none ${
-                                isPlaying ? "wave-anim" : "opacity-0"
-                            }`}
-                            style={{
-                                width: `${(BAR_W * safeRatio) / 100}px`,
-                                backgroundImage: `url('${waveBgUrls.wave1}')`,
-                                backgroundRepeat: "repeat-x",
-                                backgroundSize: "120px 14px",
-                                backgroundPositionY: "0px",
-                                WebkitMaskImage: waveMask,
-                                maskImage: waveMask,
-                                WebkitMaskRepeat: "no-repeat",
-                                maskRepeat: "no-repeat",
-                                WebkitMaskSize: "100% 100%",
-                                maskSize: "100% 100%",
-                                animationDuration: "7.5s",
-                            }}
-                        />
-                        <div
-                            className={`absolute left-[50px] top-[-8px] h-[14px] pointer-events-none ${
-                                isPlaying ? "wave-anim" : "opacity-0"
-                            }`}
-                            style={{
-                                width: `${(BAR_W * safeRatio) / 100}px`,
-                                backgroundImage: `url('${waveBgUrls.wave2}')`,
-                                backgroundRepeat: "repeat-x",
-                                backgroundSize: "120px 14px",
-                                backgroundPositionY: "0px",
-                                WebkitMaskImage: waveMask,
-                                maskImage: waveMask,
-                                WebkitMaskRepeat: "no-repeat",
-                                maskRepeat: "no-repeat",
-                                WebkitMaskSize: "100% 100%",
-                                maskSize: "100% 100%",
-                                animationDuration: "11s",
-                            }}
-                        />
-                        <div
-                            className="absolute top-0 h-[24px] w-[24px] rounded-full"
-                            style={{
-                                left: `${knobLeft}px`,
-                            }}
-                        >
+
+                    {/* 프로그레스 바 (액체 물결 오버레이) */}
+                    <div className="w-full pt-5">
+                        <div className="relative h-6 flex items-center">
+                            <LiquidWaveOverlay
+                                color={accentColor}
+                                isPlaying={isPlaying}
+                                widthPercent={safeRatio}
+                            />
+                            <div className="relative w-full h-2.5 rounded-full bg-white/25 overflow-hidden">
+                                <div
+                                    className="h-full rounded-full"
+                                    style={{
+                                        width: `${safeRatio}%`,
+                                        backgroundColor: accentColor,
+                                    }}
+                                />
+                            </div>
                             <div
-                                className="w-full h-full rounded-full"
+                                className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-5 h-5 rounded-full shadow-md ring-2 ring-black/15 pointer-events-none"
                                 style={{
+                                    left: `${safeRatio}%`,
                                     backgroundColor: accentColor,
                                 }}
                             />
-                        </div>
-
-                        <div
-                            className="absolute left-[50px] top-0 h-[22px] w-[760px] cursor-pointer touch-pan-y"
-                            style={{
-                                touchAction: "pan-y",
-                            }}
-                            onPointerDown={(e) => {
-                                if (e.pointerType === "mouse") {
+                            <div
+                                className="absolute inset-0 cursor-pointer touch-pan-y"
+                                style={{ touchAction: "pan-y" }}
+                                onPointerDown={(e) => {
                                     e.stopPropagation()
-                                    e.preventDefault()
-                                    ;(e.currentTarget as HTMLDivElement).setPointerCapture(
-                                        e.pointerId
-                                    )
-                                    setIsSeeking(true)
-                                    const rect = e.currentTarget.getBoundingClientRect()
-                                    const pos = updateSeekPreviewFromClientX(e.clientX, rect)
-                                    seekCommittedPosRef.current = pos
-                                } else {
-                                    seekStartXRef.current = e.clientX
-                                    seekStartYRef.current = e.clientY
-                                    seekStartTimeRef.current = Date.now()
-                                    seekGestureLockRef.current = "undecided"
-                                }
-                            }}
-                            onPointerMove={(e) => {
-                                if (e.pointerType === "mouse") {
-                                    e.stopPropagation()
-                                    if (!isSeeking) return
-                                    e.preventDefault()
-                                    const rect = e.currentTarget.getBoundingClientRect()
-                                    updateSeekPreviewFromClientX(e.clientX, rect)
-                                } else {
-                                    if (seekStartXRef.current === null) return
-                                    const dx = e.clientX - seekStartXRef.current
-                                    const dy = e.clientY - (seekStartYRef.current ?? 0)
-                                    const absDx = Math.abs(dx)
-                                    const absDy = Math.abs(dy)
-                                    const INTENT_PX = 10
-                                    const DOMINANCE = 1.2
-                                    if (seekGestureLockRef.current === "undecided") {
-                                        if (absDx > INTENT_PX && absDx > absDy * DOMINANCE) {
+                                    if (e.pointerType === "mouse") {
+                                        e.preventDefault()
+                                        ;(e.currentTarget as HTMLDivElement).setPointerCapture(
+                                            e.pointerId
+                                        )
+                                        setIsSeeking(true)
+                                        const rect = e.currentTarget.getBoundingClientRect()
+                                        const pos = updateSeekPreviewFromClientX(e.clientX, rect)
+                                        seekCommittedPosRef.current = pos
+                                    } else {
+                                        seekStartXRef.current = e.clientX
+                                        seekStartYRef.current = e.clientY
+                                        seekStartTimeRef.current = Date.now()
+                                        seekGestureLockRef.current = "undecided"
+                                    }
+                                }}
+                                onPointerMove={(e) => {
+                                    if (e.pointerType === "mouse") {
+                                        e.stopPropagation()
+                                        if (!isSeeking) return
+                                        e.preventDefault()
+                                        const rect = e.currentTarget.getBoundingClientRect()
+                                        updateSeekPreviewFromClientX(e.clientX, rect)
+                                    } else {
+                                        if (seekStartXRef.current === null) return
+                                        const dx = e.clientX - seekStartXRef.current
+                                        const dy = e.clientY - (seekStartYRef.current ?? 0)
+                                        if (
+                                            seekGestureLockRef.current === "undecided" &&
+                                            Math.abs(dx) > 10 &&
+                                            Math.abs(dx) > Math.abs(dy) * 1.2
+                                        ) {
                                             seekGestureLockRef.current = "horizontal"
                                             setIsSeeking(true)
                                             e.stopPropagation()
-                                            if (e.cancelable) e.preventDefault()
-                                            ;(e.currentTarget as HTMLDivElement).setPointerCapture(
-                                                e.pointerId
-                                            )
-                                        } else if (absDy > INTENT_PX && absDy > absDx * DOMINANCE) {
-                                            seekGestureLockRef.current = "vertical"
+                                        }
+                                        if (seekGestureLockRef.current === "horizontal") {
+                                            e.stopPropagation()
+                                            const rect = e.currentTarget.getBoundingClientRect()
+                                            updateSeekPreviewFromClientX(e.clientX, rect)
                                         }
                                     }
-                                    if (seekGestureLockRef.current === "horizontal") {
-                                        e.stopPropagation()
-                                        if (e.cancelable) e.preventDefault()
-                                        const rect = e.currentTarget.getBoundingClientRect()
-                                        updateSeekPreviewFromClientX(e.clientX, rect)
-                                    }
-                                }
-                            }}
-                            onPointerUp={(e) => {
-                                if (e.pointerType === "mouse") {
+                                }}
+                                onPointerUp={(e) => {
                                     e.stopPropagation()
-                                    if (!isSeeking) return
-                                    e.preventDefault()
                                     const rect = e.currentTarget.getBoundingClientRect()
-                                    const pos = updateSeekPreviewFromClientX(e.clientX, rect)
-                                    setIsSeeking(false)
-                                    void handleSeekCommit(pos)
-                                    seekCommittedPosRef.current = null
-                                } else {
-                                    const rect = e.currentTarget.getBoundingClientRect()
-                                    if (seekGestureLockRef.current === "horizontal") {
-                                        e.stopPropagation()
-                                        if (e.cancelable) e.preventDefault()
+                                    if (isSeeking || e.pointerType === "mouse") {
                                         const pos = updateSeekPreviewFromClientX(e.clientX, rect)
                                         setIsSeeking(false)
                                         void handleSeekCommit(pos)
-                                    } else {
-                                        if (
-                                            seekStartXRef.current !== null &&
-                                            seekGestureLockRef.current !== "vertical"
-                                        ) {
-                                            const dx = e.clientX - seekStartXRef.current
-                                            const dy = e.clientY - (seekStartYRef.current ?? 0)
-                                            const dt = Date.now() - (seekStartTimeRef.current ?? 0)
-                                            if (
-                                                dt < 250 &&
-                                                Math.abs(dx) < 10 &&
-                                                Math.abs(dy) < 10
-                                            ) {
-                                                const pos = updateSeekPreviewFromClientX(
-                                                    e.clientX,
-                                                    rect
-                                                )
-                                                void handleSeekCommit(pos)
-                                            }
-                                        }
                                     }
                                     seekStartXRef.current = null
                                     seekCommittedPosRef.current = null
                                     seekGestureLockRef.current = "undecided"
+                                }}
+                                onPointerCancel={() => {
                                     setIsSeeking(false)
-                                }
-                            }}
-                            onPointerCancel={() => {
-                                setIsSeeking(false)
-                                seekCommittedPosRef.current = null
-                                seekStartXRef.current = null
-                                seekGestureLockRef.current = "undecided"
-                            }}
-                        />
-                        <div className="absolute left-[50px] top-[34px] w-[323px] text-[#eee] text-[16px] font-bold">
-                            {currentTime}
+                                    seekCommittedPosRef.current = null
+                                    seekStartXRef.current = null
+                                    seekGestureLockRef.current = "undecided"
+                                }}
+                            />
                         </div>
-                        <div className="absolute left-[810px] top-[34px] w-[206px] -translate-x-full text-right text-[#eee] text-[16px] font-bold">
-                            {totalTime}
+                        <div className="mt-1.5 flex items-center justify-between text-xs sm:text-sm font-semibold text-white/75 tabular-nums">
+                            <span>{currentTime}</span>
+                            <span>{totalTime}</span>
                         </div>
                     </div>
-                    <div className="absolute left-0 top-[260px] w-full h-[50px]">
+
+                    {/* 재생 컨트롤 */}
+                    <div
+                        className={`flex items-center justify-center pt-1 transition-all duration-300 ${
+                            showPlaylist ? "gap-7 sm:gap-10" : "gap-9 sm:gap-14"
+                        }`}
+                        onPointerDown={(e) => e.stopPropagation()}
+                    >
                         <button
                             type="button"
                             onClick={handleShuffle}
-                            className="absolute left-[144px] top-0 w-[50px] h-[50px] text-white"
+                            className="text-white hover:scale-105 transition-transform cursor-pointer"
                             aria-label="Shuffle"
-                            style={{
-                                opacity: shuffleOn ? 1 : 0.5,
-                            }}
+                            style={{ opacity: shuffleOn ? 1 : 0.45 }}
                         >
-                            <FaShuffle className="w-[40px] h-[40px]" />
+                            <FaShuffle
+                                className={
+                                    showPlaylist
+                                        ? "w-6 h-6 sm:w-7 sm:h-7"
+                                        : "w-7 h-7 sm:w-8 sm:h-8"
+                                }
+                            />
                         </button>
                         <button
                             type="button"
                             onClick={handlePrevious}
-                            className="absolute left-[275px] top-0 w-[50px] h-[50px] text-white"
+                            className="text-white hover:scale-105 transition-transform cursor-pointer"
                             aria-label="Previous"
                         >
-                            <FaBackwardStep className="w-[40px] h-[40px]" />
+                            <FaBackwardStep
+                                className={
+                                    showPlaylist
+                                        ? "w-7 h-7 sm:w-8 sm:h-8"
+                                        : "w-8 h-8 sm:w-10 sm:h-10"
+                                }
+                            />
                         </button>
                         <button
                             type="button"
                             onClick={handlePlayPause}
-                            className="absolute left-[405px] top-0 w-[50px] h-[50px] text-white"
+                            className={`rounded-full bg-white text-neutral-950 hover:scale-105 flex items-center justify-center shadow-xl transition-all cursor-pointer ${
+                                showPlaylist
+                                    ? "w-14 h-14 sm:w-16 sm:h-16"
+                                    : "w-16 h-16 sm:w-20 sm:h-20"
+                            }`}
                             aria-label={isPlaying ? "Pause" : "Play"}
                         >
                             {isPlaying ? (
-                                <FaPause className="w-[40px] h-[40px]" />
+                                <FaPause
+                                    className={
+                                        showPlaylist
+                                            ? "w-6 h-6 sm:w-7 sm:h-7"
+                                            : "w-7 h-7 sm:w-8 sm:h-8"
+                                    }
+                                />
                             ) : (
-                                <FaPlay className="w-[40px] h-[40px]" />
+                                <FaPlay
+                                    className={`ml-0.5 ${
+                                        showPlaylist
+                                            ? "w-6 h-6 sm:w-7 sm:h-7"
+                                            : "w-7 h-7 sm:w-8 sm:h-8"
+                                    }`}
+                                />
                             )}
                         </button>
                         <button
                             type="button"
                             onClick={handleNext}
-                            className="absolute left-[535px] top-0 w-[50px] h-[50px] text-white"
+                            className="text-white hover:scale-105 transition-transform cursor-pointer"
                             aria-label="Next"
                         >
-                            <FaForwardStep className="w-[40px] h-[40px]" />
+                            <FaForwardStep
+                                className={
+                                    showPlaylist
+                                        ? "w-7 h-7 sm:w-8 sm:h-8"
+                                        : "w-8 h-8 sm:w-10 sm:h-10"
+                                }
+                            />
                         </button>
                         <button
                             type="button"
                             onClick={handleRepeat}
-                            className="absolute left-[665px] top-0 w-[50px] h-[50px] text-white flex items-center justify-center"
+                            className="text-white hover:scale-105 transition-transform cursor-pointer relative"
                             aria-label="Repeat"
-                            style={{
-                                opacity: repeatMode === "off" ? 0.5 : 1,
-                                color: repeatMode === "off" ? "white" : "white",
-                            }}
+                            style={{ opacity: repeatMode === "off" ? 0.45 : 1 }}
                         >
-                            <div className="relative">
-                                <FaRepeat className="w-[40px] h-[40px]" />
-                                {repeatMode === "track" && (
-                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[14px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                                        1
-                                    </div>
-                                )}
-                            </div>
+                            <FaRepeat
+                                className={
+                                    showPlaylist
+                                        ? "w-6 h-6 sm:w-7 sm:h-7"
+                                        : "w-7 h-7 sm:w-8 sm:h-8"
+                                }
+                            />
+                            {repeatMode === "track" && (
+                                <span className="absolute -top-1.5 -right-2 text-[10px] font-bold bg-white text-black rounded-full w-4 h-4 flex items-center justify-center">
+                                    1
+                                </span>
+                            )}
                         </button>
                     </div>
-                    {accessToken ? (
-                        <button
-                            type="button"
-                            onClick={() => {
-                                logoutSpotify()
-                                setAccessToken(null)
-                            }}
-                            className="absolute top-[30px] right-[50px] text-white text-[12px] font-bold opacity-70"
-                            aria-label="Logout"
-                        >
-                            로그아웃
-                        </button>
-                    ) : null}
                 </div>
-                <div
-                    className="absolute left-0 top-[375px] w-[860px] h-[400px] rounded-[45px]"
-                    style={{
-                        backgroundImage: playlistGradient,
-                        backgroundColor: playlistRepresentative,
-                    }}
-                >
-                    <div
-                        className="absolute left-[50px] top-[22px] h-[40px] flex items-center"
-                        style={{
-                            color: textColor,
-                            fontSize: "32px",
-                            fontWeight: "bold",
-                        }}
-                    >
-                        Playlist
-                    </div>
-                    <div
-                        className="absolute left-[810px] top-[22px] h-[40px] w-[616px] -translate-x-full flex items-center justify-end font-normal"
-                        style={{
-                            color: applyOpacity(textColor, 0.7).rgba,
-                            fontSize: "24px",
-                        }}
-                    >
-                        Next song : {nextSongLabel}
-                    </div>
-                    <div
-                        className="absolute left-[50px] right-[50px] top-[90px] bottom-[24px] overflow-y-auto no-scrollbar"
-                        style={{
-                            WebkitOverflowScrolling: "touch",
-                        }}
-                    >
-                        <div className="space-y-5">
-                            {listItems.map((t, idx) => (
-                                <div
-                                    key={`${t.title}-${idx}`}
-                                    className="flex items-center cursor-pointer"
-                                    role="button"
-                                    aria-label={`Play ${t.title}`}
-                                    onClick={() => void handlePlayQueueItem(t.uri)}
-                                >
-                                    <div className="w-[70px] h-[70px] rounded-[5px] overflow-hidden bg-white/30 shrink-0">
-                                        {t.coverUrl ? (
-                                            <img
-                                                src={t.coverUrl}
-                                                alt={t.album}
-                                                className="w-full h-full object-cover"
-                                            />
-                                        ) : null}
-                                    </div>
-                                    <div className="ml-[20px] min-w-0">
+
+                {/* 우측: Playlist / Up Next (접기/펼치기 가능) */}
+                <AnimatePresence initial={false}>
+                    {showPlaylist && (
+                        <motion.div
+                            initial={{ opacity: 0, width: 0, marginLeft: 0 }}
+                            animate={{ opacity: 1, width: "min(100%, 440px)", marginLeft: 48 }}
+                            exit={{ opacity: 0, width: 0, marginLeft: 0 }}
+                            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                            className="shrink-0 overflow-hidden h-[300px] lg:h-full lg:max-h-[640px] max-lg:!ml-0 max-lg:!w-full"
+                            onPointerDown={(e) => e.stopPropagation()}
+                        >
+                            <motion.div
+                                initial={{ x: 64 }}
+                                animate={{ x: 0 }}
+                                exit={{ x: 64 }}
+                                transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                                className="w-full lg:w-[440px] h-full flex flex-col rounded-[32px] p-6 ring-1 ring-white/15 backdrop-blur-2xl overflow-hidden"
+                                style={{
+                                    backgroundImage: playlistGradient,
+                                    backgroundColor: playlistRepresentative,
+                                }}
+                            >
+                                <div className="flex items-center justify-between gap-3 pb-4 shrink-0">
+                                    <div className="min-w-0">
                                         <div
-                                            className="text-[24px] font-normal leading-none truncate"
-                                            style={{
-                                                color: textColor,
-                                                fontWeight: 400,
-                                            }}
+                                            className="text-2xl font-bold leading-tight"
+                                            style={{ color: textColor }}
                                         >
-                                            {t.title}
+                                            Playlist
                                         </div>
                                         <div
-                                            className="mt-2 text-[16px] font-normal leading-none truncate"
-                                            style={{
-                                                color: applyOpacity(textColor, 0.7).rgba,
-                                            }}
+                                            className="text-xs font-medium truncate mt-0.5"
+                                            style={{ color: applyOpacity(textColor, 0.7).rgba }}
                                         >
-                                            {t.artist}
+                                            Next : {nextSongLabel}
                                         </div>
                                     </div>
+                                    {/* <button
+                                        type="button"
+                                        aria-label="플레이리스트 접기"
+                                        onClick={() => setShowPlaylist(false)}
+                                        className="w-8 h-8 rounded-full bg-black/15 hover:bg-black/25 flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+                                        style={{ color: textColor }}
+                                    >
+                                        <FaXmark className="w-4 h-4" />
+                                    </button> */}
                                 </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
+                                <div
+                                    className="flex-1 overflow-y-auto no-scrollbar space-y-3"
+                                    style={{ WebkitOverflowScrolling: "touch" }}
+                                >
+                                    {listItems.map((t, idx) => (
+                                        <div
+                                            key={`${t.title}-${idx}`}
+                                            className="flex items-center gap-3.5 p-2 rounded-2xl hover:bg-black/10 transition-colors cursor-pointer"
+                                            role="button"
+                                            aria-label={`Play ${t.title}`}
+                                            onClick={() => void handlePlayQueueItem(t.uri)}
+                                        >
+                                            <div className="w-12 h-12 rounded-xl overflow-hidden bg-white/20 shrink-0">
+                                                {t.coverUrl ? (
+                                                    <img
+                                                        src={t.coverUrl}
+                                                        alt={t.album}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                ) : null}
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <div
+                                                    className="text-base font-semibold leading-tight truncate"
+                                                    style={{ color: textColor }}
+                                                >
+                                                    {t.title}
+                                                </div>
+                                                <div
+                                                    className="mt-1 text-xs truncate"
+                                                    style={{
+                                                        color: applyOpacity(textColor, 0.7).rgba,
+                                                    }}
+                                                >
+                                                    {t.artist}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
         </div>
     )

@@ -24,14 +24,17 @@ function FlipDigit({ digit }: FlipDigitProps) {
 
     return (
         <div
-            className="relative w-[250px] h-[320px] bg-[#4b4b4b] rounded-[30px] overflow-hidden"
+            className="relative w-[28.09cqw] h-[35.95cqw] bg-[#4b4b4b] rounded-[3.37cqw] overflow-hidden shrink-0"
             style={{ perspective: "900px" }}
         >
             {/* 정적 상단 (새 숫자) */}
             <div className="absolute top-0 left-0 right-0 h-1/2 overflow-hidden z-10 pointer-events-none">
                 <div className="absolute inset-0 bg-[#4b4b4b]" />
-                <div className="absolute left-0 top-0 w-full h-[320px] flex items-center justify-center">
-                    <span className="text-[165px] font-bold text-white leading-none">
+                <div className="absolute left-0 top-0 w-full h-[200%] flex items-center justify-center">
+                    <span
+                        className="font-bold text-white leading-none"
+                        style={{ fontSize: "18.54cqw" }}
+                    >
                         {currentDigit}
                     </span>
                 </div>
@@ -41,8 +44,11 @@ function FlipDigit({ digit }: FlipDigitProps) {
             {/* 정적 하단 (플립 중에는 이전 숫자, 완료 후 새 숫자) */}
             <div className="absolute bottom-0 left-0 right-0 h-1/2 overflow-hidden z-10 pointer-events-none">
                 <div className="absolute inset-0 bg-[#4b4b4b]" />
-                <div className="absolute left-0 bottom-0 w-full h-[320px] flex items-center justify-center">
-                    <span className="text-[165px] font-bold text-white leading-none">
+                <div className="absolute left-0 bottom-0 w-full h-[200%] flex items-center justify-center">
+                    <span
+                        className="font-bold text-white leading-none"
+                        style={{ fontSize: "18.54cqw" }}
+                    >
                         {isFlipping ? prevDigit : currentDigit}
                     </span>
                 </div>
@@ -66,8 +72,11 @@ function FlipDigit({ digit }: FlipDigitProps) {
                     }}
                 >
                     <div className="absolute inset-0 bg-[#4b4b4b]" />
-                    <div className="absolute left-0 top-0 w-full h-[320px] flex items-center justify-center">
-                        <span className="text-[165px] font-bold text-white leading-none">
+                    <div className="absolute left-0 top-0 w-full h-[200%] flex items-center justify-center">
+                        <span
+                            className="font-bold text-white leading-none"
+                            style={{ fontSize: "18.54cqw" }}
+                        >
                             {prevDigit}
                         </span>
                     </div>
@@ -94,8 +103,11 @@ function FlipDigit({ digit }: FlipDigitProps) {
                     }}
                 >
                     <div className="absolute inset-0 bg-[#4b4b4b]" />
-                    <div className="absolute left-0 bottom-0 w-full h-[320px] flex items-center justify-center">
-                        <span className="text-[165px] font-bold text-white leading-none">
+                    <div className="absolute left-0 bottom-0 w-full h-[200%] flex items-center justify-center">
+                        <span
+                            className="font-bold text-white leading-none"
+                            style={{ fontSize: "18.54cqw" }}
+                        >
                             {currentDigit}
                         </span>
                     </div>
@@ -103,7 +115,7 @@ function FlipDigit({ digit }: FlipDigitProps) {
                 </motion.div>
             )}
 
-            <div className="absolute bg-[#2d2d2d] h-[8px] left-0 top-[156px] w-[250px] z-40" />
+            <div className="absolute bg-[#2d2d2d] h-[0.9cqw] left-0 top-1/2 -translate-y-1/2 w-full z-40" />
         </div>
     )
 }
@@ -128,7 +140,7 @@ export function Clock() {
     }, [])
 
     if (!time) {
-        return <div className="relative h-[320px] w-[890px]" />
+        return <div className="w-full aspect-[890/320]" />
     }
 
     const hours = String(time.getHours()).padStart(2, "0")
@@ -136,28 +148,25 @@ export function Clock() {
     const seconds = String(time.getSeconds()).padStart(2, "0")
 
     return (
-        <div className="relative h-[320px] w-[890px]">
-            <div className="absolute left-0 top-0">
-                <FlipDigit digit={hours} />
+        <div
+            className="w-full flex items-center justify-between"
+            style={{ containerType: "inline-size" }}
+        >
+            <FlipDigit digit={hours} />
+
+            <div className="flex flex-col gap-[6.74cqw] shrink-0">
+                <div className="w-[2.25cqw] h-[2.25cqw] bg-white" />
+                <div className="w-[2.25cqw] h-[2.25cqw] bg-white" />
             </div>
 
-            <div className="absolute left-[275px] top-[110px] flex flex-col gap-[60px]">
-                <div className="w-[20px] h-[20px] bg-white" />
-                <div className="w-[20px] h-[20px] bg-white" />
+            <FlipDigit digit={minutes} />
+
+            <div className="flex flex-col gap-[6.74cqw] shrink-0">
+                <div className="w-[2.25cqw] h-[2.25cqw] bg-white" />
+                <div className="w-[2.25cqw] h-[2.25cqw] bg-white" />
             </div>
 
-            <div className="absolute left-[320px] top-0">
-                <FlipDigit digit={minutes} />
-            </div>
-
-            <div className="absolute left-[595px] top-[110px] flex flex-col gap-[60px]">
-                <div className="w-[20px] h-[20px] bg-white" />
-                <div className="w-[20px] h-[20px] bg-white" />
-            </div>
-
-            <div className="absolute left-[640px] top-0">
-                <FlipDigit digit={seconds} />
-            </div>
+            <FlipDigit digit={seconds} />
         </div>
     )
 }

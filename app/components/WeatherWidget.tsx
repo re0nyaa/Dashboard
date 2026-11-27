@@ -177,29 +177,22 @@ export function WeatherWidget() {
         d.toLocaleTimeString("ko-KR", { hour: "numeric", minute: "numeric" })
 
     return (
-        <div className="relative w-[860px] h-[440px]">
-            <div
-                onClick={() => setShowDetail(true)}
-                className={`
-        absolute inset-0 rounded-[60px] overflow-hidden cursor-pointer
-        transition-opacity duration-200 ease-out
-        ${showDetail ? "opacity-0 pointer-events-none" : "opacity-100"}
-    `}
-            >
-                <div
-                    className="absolute inset-0"
-                    style={{
-                        background: `linear-gradient(135deg, ${finalFrom}, ${finalTo})`,
-                    }}
-                />
-                <div className="relative h-full w-full px-[56px] py-[44px] flex">
-                    <div className="absolute top-[10px] right-[10px]">
-                        <div className="animate-[float-slow_5s_ease-in-out_infinite]">
-                            <LargeWeatherIcon iconCode={data?.iconCode} />
-                        </div>
+        <div
+            className="relative w-full h-full overflow-hidden select-none"
+            style={{
+                background: `linear-gradient(135deg, ${finalFrom}, ${finalTo})`,
+            }}
+        >
+            <div className="relative h-full w-full max-w-[1440px] mx-auto px-6 sm:px-14 lg:px-20 py-14 sm:py-16 flex flex-col justify-between gap-6">
+                {/* 상단: 위치 & 업데이트 */}
+                <div className="flex items-center justify-between text-white/85">
+                    <div className="flex items-center gap-2 text-base sm:text-xl font-bold">
+                        <FaLocationDot className="w-4 h-4 sm:w-5 sm:h-5" />
+                        <span>{location}</span>
                     </div>
-                    <div
-                        className="absolute top-[10px] right-[40px] flex items-center gap-2"
+                    <button
+                        type="button"
+                        className="flex items-center gap-2 text-xs sm:text-sm font-medium bg-black/15 hover:bg-black/25 backdrop-blur-md px-3.5 py-1.5 rounded-full transition-colors cursor-pointer"
                         onClick={async (e) => {
                             e.stopPropagation()
                             setIsRefreshing(true)
@@ -213,136 +206,93 @@ export function WeatherWidget() {
                         }}
                     >
                         <span>{lastUpdated ? formatTime(lastUpdated) : "업데이트 없음"}</span>
-                        <FaRedoAlt className={isRefreshing ? "animate-[spin_700ms_linear]" : ""} />
-                    </div>
-                    <div className="mt-[40px] flex-1 flex flex-col justify-center">
-                        <div className="text-white text-[96px] font-black leading-none tracking-tight">
-                            {temperature}°
-                        </div>
-
-                        <div className="mt-[6px] text-white/95 text-[46px] font-black leading-none">
-                            {condition}
-                        </div>
-                        <div className="text-gray-300 text-[18px] font-bold flex items-center gap-2">
-                            {location}
-                        </div>
-                        <div className="flex mt-4 items-center">
-                            {hourly.slice(0, 8).map(({ dt, temp, pop, iconCode }, idx) => (
-                                <div key={idx} className="flex flex-col items-center text-center">
-                                    <div className="text-[24px] font-bold ">
-                                        {dt.split(" ")[1].slice(0, 2)}
-                                    </div>
-
-                                    <LargeWeatherIcon iconCode={iconCode} />
-
-                                    <div className="text-[22px] font-bold">{Math.round(temp)}°</div>
-                                    <div className="text-[18px] font-bold text-gray-300">{`${Math.round(pop * 100)}%`}</div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                        <FaRedoAlt
+                            className={`w-3 h-3 ${isRefreshing ? "animate-[spin_700ms_linear]" : ""}`}
+                        />
+                    </button>
                 </div>
-            </div>
-            <div
-                onClick={() => setShowDetail(false)}
-                className={`
-        absolute inset-0 rounded-[60px] overflow-hidden cursor-pointer
-        transition-all duration-250 ease-out
-        ${
-            showDetail
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 translate-y-[4px] pointer-events-none"
-        }
-    `}
-            >
-                <div
-                    className="absolute inset-0"
-                    style={{
-                        background: `linear-gradient(135deg, ${finalFrom}, ${finalTo})`,
-                    }}
-                />
-                <div className="relative h-full w-full px-[56px] py-[44px] flex">
-                    <div className="w-[340px] h-full flex flex-col relative">
-                        <div className="absolute -top-[45px] right-[0px]">
-                            <div className="animate-[float-slow_5s_ease-in-out_infinite]">
-                                <LargeWeatherIcon iconCode={data?.iconCode} />
-                            </div>
-                        </div>
 
-                        <div className="flex-1 flex flex-col justify-center">
-                            <div className="text-white text-[96px] font-black leading-none tracking-tight">
+                {/* 중단: 현재 날씨 + 주간 예보 */}
+                <div className="my-auto grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-center">
+                    {/* 좌측: 현재 기온 및 상태 */}
+                    <div className="lg:col-span-6 flex items-center justify-between lg:justify-start gap-6">
+                        <div>
+                            <div className="text-white text-[clamp(4.5rem,10vw,9rem)] font-black leading-none tracking-tight">
                                 {temperature}°
                             </div>
-
-                            <div className="mt-[6px] text-white/95 text-[46px] font-black leading-none">
+                            <div className="mt-2 text-white/95 text-[clamp(1.5rem,3vw,2.75rem)] font-extrabold leading-tight">
                                 {condition}
                             </div>
-
-                            <div className="mt-[34px] text-white/90 text-[28px] font-bold leading-tight">
-                                ↑ {maxTemp}° / ↓ {minTemp}°
-                            </div>
-
-                            <div className="text-white/90 text-[28px] font-bold leading-tight">
-                                체감온도 {feelsLike}°
+                            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1 text-white/85 text-sm sm:text-lg font-semibold">
+                                <span>
+                                    최고 {maxTemp}° · 최저 {minTemp}°
+                                </span>
+                                <span>체감 {feelsLike}°</span>
                             </div>
                         </div>
 
-                        <div className="text-gray-300 text-[18px] font-bold leading-tight flex items-center gap-2 mt-auto">
-                            <FaLocationDot />
-                            {location}
+                        <div className="animate-[float-slow_5s_ease-in-out_infinite] shrink-0">
+                            <LargeWeatherIcon iconCode={data?.iconCode} />
                         </div>
                     </div>
 
-                    <div className="flex-1 pl-[40px] flex flex-col justify-center">
-                        <div
-                            className="absolute top-[10px] right-[40px] flex items-center gap-2"
-                            onClick={async (e) => {
-                                e.stopPropagation()
-                                setIsRefreshing(true)
-                                try {
-                                    await load(true)
-                                } catch (err) {
-                                    console.error(err)
-                                } finally {
-                                    setTimeout(() => setIsRefreshing(false), 700)
-                                }
-                            }}
-                        >
-                            <span>{lastUpdated ? formatTime(lastUpdated) : "업데이트 없음"}</span>
-                            <FaRedoAlt
-                                className={isRefreshing ? "animate-[spin_700ms_linear]" : ""}
-                            />
-                        </div>
+                    {/* 우측: 주간 예보 글래스 카드 */}
+                    <div className="lg:col-span-6 rounded-3xl bg-black/15 backdrop-blur-xl ring-1 ring-white/15 px-6 sm:px-8 py-4 sm:py-5">
                         {forecast.length === 0 ? (
-                            <div className="text-white/90 text-[28px] font-bold">
+                            <div className="text-white/80 text-base sm:text-lg font-semibold py-8 text-center">
                                 날씨 정보를 불러오는 중...
                             </div>
                         ) : (
-                            forecast.map((f, idx) => (
-                                <div key={`${f.date}-${idx}`}>
-                                    <div className="grid grid-cols-[110px_100px_1fr] items-center py-[22px]">
-                                        <div className="text-white text-[34px] font-black">
+                            <div className="divide-y divide-white/15">
+                                {forecast.map((f, idx) => (
+                                    <div
+                                        key={`${f.date}-${idx}`}
+                                        className="grid grid-cols-[76px_1fr_104px] sm:grid-cols-[96px_1fr_132px] items-center py-2.5 sm:py-3.5"
+                                    >
+                                        <div className="text-white text-lg sm:text-2xl font-bold">
                                             {f.weekday}
                                         </div>
-
-                                        <div className="flex justify-center">
-                                            <SmallWeatherIcon iconCode={f.iconCodeAM} />
-                                            <SmallWeatherIcon iconCode={f.iconCodePM} />
+                                        <div className="flex items-center justify-center gap-2">
+                                            <div className="w-12 flex items-center justify-center">
+                                                <SmallWeatherIcon iconCode={f.iconCodeAM} />
+                                            </div>
+                                            <div className="w-12 flex items-center justify-center">
+                                                <SmallWeatherIcon iconCode={f.iconCodePM} />
+                                            </div>
                                         </div>
-
-                                        <div className="text-right text-white text-[34px] font-bold pr-[12px] flex flex-col items-end">
-                                            <span>
-                                                {f.maxTemp}° {f.minTemp}°
-                                            </span>
+                                        <div className="text-right text-white text-lg sm:text-2xl font-bold tabular-nums whitespace-nowrap">
+                                            <span>{f.maxTemp}°</span>
+                                            <span className="text-white/55 ml-2">{f.minTemp}°</span>
                                         </div>
                                     </div>
-
-                                    {idx !== forecast.length - 1 && (
-                                        <div className="h-[2px] bg-white/45" />
-                                    )}
-                                </div>
-                            ))
+                                ))}
+                            </div>
                         )}
+                    </div>
+                </div>
+
+                {/* 하단: 시간별 예보 */}
+                <div className="rounded-3xl bg-black/15 backdrop-blur-xl ring-1 ring-white/15 px-5 sm:px-8 py-5 sm:py-6 overflow-x-auto no-scrollbar mb-6 sm:mb-8 shrink-0">
+                    <div className="grid grid-cols-8 min-w-[560px] gap-3">
+                        {hourly.slice(0, 8).map(({ dt, temp, pop, iconCode }, idx) => (
+                            <div
+                                key={idx}
+                                className="flex flex-col items-center justify-center gap-1.5 text-center text-white"
+                            >
+                                <div className="text-xs sm:text-sm font-semibold text-white/80">
+                                    {dt.split(" ")[1].slice(0, 2)}시
+                                </div>
+                                <div className="my-1">
+                                    <SmallWeatherIcon iconCode={iconCode} />
+                                </div>
+                                <div className="text-sm sm:text-base font-bold leading-none">
+                                    {Math.round(temp)}°
+                                </div>
+                                <div className="text-[11px] sm:text-xs font-medium text-sky-100/80 leading-none pt-0.5">
+                                    {Math.round(pop * 100)}%
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>
