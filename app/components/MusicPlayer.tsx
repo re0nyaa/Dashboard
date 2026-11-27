@@ -210,6 +210,11 @@ export function MusicPlayer() {
     const titleMarqueeOffsetRef = useRef(0)
     const titleMarqueeLastTsRef = useRef<number | null>(null)
     const titleMarqueePauseUntilRef = useRef<number | null>(null)
+    const playlistScrollRef = useRef<HTMLDivElement | null>(null)
+    const isDraggingPlaylistRef = useRef(false)
+    const playlistStartYRef = useRef(0)
+    const playlistScrollTopRef = useRef(0)
+    const hasDraggedPlaylistRef = useRef(false)
     useEffect(() => {
         if (!currentTrack?.title) return
         let raf1 = 0
@@ -525,6 +530,28 @@ export function MusicPlayer() {
         const ok = await setShuffle(accessToken, next)
         if (ok) setShuffleOn(next)
     }
+    const handlePlaylistMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (e.button !== 0) return
+        const el = playlistScrollRef.current
+        if (!el) return
+        isDraggingPlaylistRef.current = true
+        hasDraggedPlaylistRef.current = false
+        playlistStartYRef.current = e.clientY
+        playlistScrollTopRef.current = el.scrollTop
+    }
+    const handlePlaylistMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (!isDraggingPlaylistRef.current) return
+        const el = playlistScrollRef.current
+        if (!el) return
+        const deltaY = e.clientY - playlistStartYRef.current
+        if (Math.abs(deltaY) > 5) {
+            hasDraggedPlaylistRef.current = true
+        }
+        el.scrollTop = playlistScrollTopRef.current - deltaY
+    }
+    const handlePlaylistMouseUpOrLeave = () => {
+        isDraggingPlaylistRef.current = false
+    }
     const handlePlayQueueItem = async (uri?: string) => {
         if (!accessToken || !uri) return
         const idx = queue.findIndex((q) => q.uri === uri)
@@ -718,7 +745,7 @@ export function MusicPlayer() {
                             <button
                                 type="button"
                                 onClick={() => setShowPlaylist((prev) => !prev)}
-                                className={`flex items-center gap-1.5 text-xs font-semibold px-3.5 py-1.5 rounded-full ring-1 transition-colors cursor-pointer ${
+                                className={`inline-flex items-center justify-center gap-1.5 h-8 px-3.5 rounded-full text-xs font-semibold ring-1 transition-colors cursor-pointer ${
                                     showPlaylist
                                         ? "bg-white text-neutral-950 ring-white"
                                         : "bg-white/10 hover:bg-white/15 text-white/80 hover:text-white ring-white/15"
@@ -734,7 +761,7 @@ export function MusicPlayer() {
                                         logoutSpotify()
                                         setAccessToken(null)
                                     }}
-                                    className="text-white/60 hover:text-white text-xs font-semibold px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/15 transition-colors cursor-pointer"
+                                    className="inline-flex items-center justify-center h-8 px-3.5 rounded-full text-xs font-semibold text-white/60 hover:text-white bg-white/10 hover:bg-white/15 ring-1 ring-white/15 transition-colors cursor-pointer"
                                     aria-label="Logout"
                                 >
                                     로그아웃
@@ -1052,27 +1079,43 @@ export function MusicPlayer() {
                                     </button> */}
                                 </div>
                                 <div
-                                    className="flex-1 overflow-y-auto no-scrollbar space-y-3"
-                                    style={{ WebkitOverflowScrolling: "touch" }}
+                                    ref={playlistScrollRef}
+                                    onMouseDown={handlePlaylistMouseDown}
+                                    onMouseMove={handlePlaylistMouseMove}
+                                    onMouseUp={handlePlaylistMouseUpOrLeave}
+                                    onMouseLeave={handlePlaylistMouseUpOrLeave}
+                                    onTouchStart={(e) => e.stopPropagation()}
+                                    onTouchMove={(e) => e.stopPropagation()}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    className="flex-1 overflow-y-auto no-scrollbar space-y-3 cursor-grab active:cursor-grabbing touch-pan-y select-none"
+                                    style={{
+                                        touchAction: "pan-y",
+                                        overscrollBehavior: "contain",
+                                        WebkitOverflowScrolling: "touch",
+                                    }}
                                 >
                                     {listItems.map((t, idx) => (
                                         <div
                                             key={`${t.title}-${idx}`}
-                                            className="flex items-center gap-3.5 p-2 rounded-2xl hover:bg-black/10 transition-colors cursor-pointer"
+                                            className="flex items-center gap-3.5 p-2 rounded-2xl hover:bg-black/10 transition-colors cursor-pointer select-none"
                                             role="button"
                                             aria-label={`Play ${t.title}`}
-                                            onClick={() => void handlePlayQueueItem(t.uri)}
+                                            onClick={() => {
+                                                if (hasDraggedPlaylistRef.current) return
+                                                void handlePlayQueueItem(t.uri)
+                                            }}
                                         >
-                                            <div className="w-12 h-12 rounded-xl overflow-hidden bg-white/20 shrink-0">
+                                            <div className="w-12 h-12 rounded-xl overflow-hidden bg-white/20 shrink-0 pointer-events-none">
                                                 {t.coverUrl ? (
                                                     <img
                                                         src={t.coverUrl}
                                                         alt={t.album}
-                                                        className="w-full h-full object-cover"
+                                                        draggable={false}
+                                                        className="w-full h-full object-cover select-none pointer-events-none"
                                                     />
                                                 ) : null}
                                             </div>
-                                            <div className="min-w-0 flex-1">
+                                            <div className="min-w-0 flex-1 pointer-events-none select-none">
                                                 <div
                                                     className="text-base font-semibold leading-tight truncate"
                                                     style={{ color: textColor }}

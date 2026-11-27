@@ -142,7 +142,7 @@ export function ScheduleWidget() {
                             </div>
                         </div>
                     </div>
-                    <div className="inline-flex items-center px-3.5 py-1.5 rounded-full bg-white/[0.08] ring-1 ring-white/10 text-xs sm:text-sm font-medium text-white/75 lg:mt-6">
+                    <div className="inline-flex items-center px-3.5 py-1.5 rounded-xl bg-white/[0.08] ring-1 ring-white/10 text-xs sm:text-sm font-medium text-white/75 lg:mt-6">
                         오늘 일정 {upcoming.length}건
                     </div>
                 </div>
