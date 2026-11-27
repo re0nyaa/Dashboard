@@ -349,7 +349,6 @@ export default function Home() {
                     onClick={() => setEditMode(true)}
                     className="fixed top-5 right-5 z-30 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-black/30 hover:bg-black/50 text-white/80 hover:text-white ring-1 ring-white/15 backdrop-blur-md text-xs font-medium transition-colors cursor-pointer"
                 >
-                    <IoOptionsOutline className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">편집</span>
                 </button>
             )}

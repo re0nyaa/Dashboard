@@ -215,24 +215,23 @@ export function WeatherWidget() {
                 {/* 중단: 현재 날씨 + 주간 예보 */}
                 <div className="my-auto grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-center">
                     {/* 좌측: 현재 기온 및 상태 */}
-                    <div className="lg:col-span-6 flex items-center justify-between lg:justify-start gap-6">
-                        <div>
+                    <div className="lg:col-span-6 flex flex-col">
+                        <div className="flex items-center justify-between lg:justify-start gap-6">
                             <div className="text-white text-[clamp(4.5rem,10vw,9rem)] font-black leading-none tracking-tight">
                                 {temperature}°
                             </div>
-                            <div className="mt-2 text-white/95 text-[clamp(1.5rem,3vw,2.75rem)] font-extrabold leading-tight">
-                                {condition}
-                            </div>
-                            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1 text-white/85 text-sm sm:text-lg font-semibold">
-                                <span>
-                                    최고 {maxTemp}° · 최저 {minTemp}°
-                                </span>
-                                <span>체감 {feelsLike}°</span>
+                            <div className="-mt-4 sm:-mt-6 animate-[float-slow_5s_ease-in-out_infinite] shrink-0">
+                                <LargeWeatherIcon iconCode={data?.iconCode} />
                             </div>
                         </div>
-
-                        <div className="animate-[float-slow_5s_ease-in-out_infinite] shrink-0">
-                            <LargeWeatherIcon iconCode={data?.iconCode} />
+                        <div className="mt-2 text-white/95 text-[clamp(1.5rem,3vw,2.75rem)] font-extrabold leading-tight">
+                            {condition}
+                        </div>
+                        <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1 text-white/85 text-sm sm:text-lg font-semibold">
+                            <span>
+                                최고 {maxTemp}° · 최저 {minTemp}°
+                            </span>
+                            <span>체감 {feelsLike}°</span>
                         </div>
                     </div>
 

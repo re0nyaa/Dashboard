@@ -124,21 +124,6 @@ export function CalendarWidget() {
     )
 
     const dayHeaders = ["일", "월", "화", "수", "목", "금", "토"]
-    const monthNamesEn = [
-        "JANUARY",
-        "FEBRUARY",
-        "MARCH",
-        "APRIL",
-        "MAY",
-        "JUNE",
-        "JULY",
-        "AUGUST",
-        "SEPTEMBER",
-        "OCTOBER",
-        "NOVEMBER",
-        "DECEMBER",
-    ]
-    const monthEn = monthNamesEn[now.getMonth()]
     const rowCount = grid.length / 7
 
     return (
@@ -146,16 +131,11 @@ export function CalendarWidget() {
             <div className="relative h-full w-full max-w-[1440px] mx-auto px-6 sm:px-14 lg:px-20 py-14 sm:py-16 flex flex-col lg:flex-row items-stretch gap-8 lg:gap-16">
                 {/* 좌측 오늘 날짜 히어로 */}
                 <div className="lg:w-[30%] shrink-0 flex flex-row lg:flex-col items-end lg:items-start justify-between lg:justify-center">
-                    <div>
-                        <div className="text-[#FF453A] text-xs sm:text-sm font-bold tracking-[0.2em] uppercase">
-                            {monthEn} {year}
-                        </div>
-                        <div className="mt-1 text-white/50 text-base sm:text-xl font-semibold tracking-tight">
-                            {year}년 {now.getMonth() + 1}월
-                        </div>
+                    <div className="text-white/65 text-[clamp(1.35rem,2.6vw,2.25rem)] font-bold tracking-tight">
+                        {year}년 {now.getMonth() + 1}월
                     </div>
 
-                    <div className="flex items-baseline gap-3 lg:block lg:mt-6">
+                    <div className="flex items-baseline gap-3 lg:block lg:mt-2">
                         <div className="text-white text-[clamp(3.75rem,9.5vw,9rem)] font-black leading-none tracking-tighter tabular-nums">
                             {day}
                         </div>
@@ -165,9 +145,9 @@ export function CalendarWidget() {
                     </div>
                 </div>
 
-                {/* 우측 OS 다크 글래스 월간 캘린더 */}
+                {/* 우측 월간 캘린더 */}
                 <div className="flex-1 min-h-0 flex flex-col justify-center">
-                    <div className="w-full h-full max-h-[640px] rounded-[32px] bg-white/[0.04] ring-1 ring-white/10 backdrop-blur-2xl p-5 sm:p-8 flex flex-col">
+                    <div className="w-full h-full max-h-[640px] rounded-[32px] bg-[#1b1b1f] ring-1 ring-white/10 p-5 sm:p-8 flex flex-col">
                         {/* 요일 헤더 */}
                         <div className="grid grid-cols-7 pb-3 sm:pb-4 border-b border-white/[0.08] shrink-0">
                             {dayHeaders.map((label, i) => (
