@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react"
-import { fetchWeather, type WeatherCardData } from "../utils/weather"
+import { fetchWeather, getLocationPreference, type WeatherCardData } from "../utils/weather"
 import { FaLocationDot } from "react-icons/fa6"
 import { FaRedoAlt } from "react-icons/fa"
 
@@ -90,6 +90,16 @@ export function WeatherWidget() {
     }
 
     const load = useCallback(async (force = false) => {
+        const pref = getLocationPreference()
+        if (pref.mode === "manual") {
+            const next = await fetchWeather({ lat: pref.lat, lon: pref.lon }, force)
+            if (!isCancelledRef.current && next) {
+                setData(next)
+                setLastUpdated(next.lastUpdated ? new Date(next.lastUpdated) : new Date())
+            }
+            return
+        }
+
         if (autoLocation) {
             const cached = readCachedCoords()
             if (cached) {
@@ -131,9 +141,14 @@ export function WeatherWidget() {
     useEffect(() => {
         isCancelledRef.current = false
         load()
+        const onLocationChange = () => {
+            void load(true)
+        }
+        window.addEventListener("dashboard:location-changed", onLocationChange)
         const interval = window.setInterval(() => load(false), 30 * 60 * 1000)
         return () => {
             isCancelledRef.current = true
+            window.removeEventListener("dashboard:location-changed", onLocationChange)
             window.clearInterval(interval)
         }
     }, [load])
@@ -239,7 +254,7 @@ export function WeatherWidget() {
                     <div className="lg:col-span-6 rounded-3xl bg-black/15 backdrop-blur-xl ring-1 ring-white/15 px-6 sm:px-8 py-4 sm:py-5">
                         {forecast.length === 0 ? (
                             <div className="text-white/80 text-base sm:text-lg font-semibold py-8 text-center">
-                                날씨 정보를 불러오는 중...
+                                날씨 정보를 불러오고 있어요...
                             </div>
                         ) : (
                             <div className="divide-y divide-white/15">

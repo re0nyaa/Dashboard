@@ -1,4 +1,5 @@
 import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router"
+import { SafetyAlertOverlay } from "./components/SafetyAlertOverlay"
 import { ToasterProvider } from "./components/Toaster"
 import { useConnectivityToasts } from "./hook/useConnectivityToasts"
 
@@ -38,7 +39,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 function AppContent() {
     useConnectivityToasts()
-    return <Outlet />
+    return (
+        <>
+            <Outlet />
+            <SafetyAlertOverlay />
+        </>
+    )
 }
 
 export default function App() {

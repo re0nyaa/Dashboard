@@ -33,9 +33,7 @@ export default function Callback() {
         <div className="min-h-screen flex items-center justify-center bg-black text-white">
             <div className="text-center space-y-3">
                 <div className="text-2xl font-bold">Connecting to Spotify…</div>
-                <div className="text-sm text-white/70">
-                    이 창은 잠시 후 자동으로 닫히거나 홈으로 이동합니다.
-                </div>
+                <div className="text-sm text-white/70">잠시 후 자동으로 홈으로 이동할게요. </div>
                 {error ? <div className="text-red-400 text-sm">{error}</div> : null}
             </div>
         </div>

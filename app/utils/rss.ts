@@ -6,9 +6,12 @@ export interface NewsItem {
     imageUrl?: string
 }
 
-export async function fetchNews(limit: number = 25): Promise<NewsItem[]> {
+export async function fetchNews(limit: number = 25, force = false): Promise<NewsItem[]> {
     try {
-        const response = await fetch(`/api/news?limit=${limit}`)
+        const ts = force ? `&_t=${Date.now()}` : ""
+        const response = await fetch(`/api/news?limit=${limit}${ts}`, {
+            cache: "no-store",
+        })
         const items = (await response.json()) as NewsItem[]
         return Array.isArray(items) ? items : []
     } catch (error) {

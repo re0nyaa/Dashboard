@@ -27,6 +27,70 @@ export type WeatherCardData = {
     lastUpdated: string
 }
 
+export type LocationPreference =
+    | { mode: "auto" }
+    | { mode: "manual"; name: string; lat: number; lon: number }
+
+export type LocationSearchResult = {
+    name: string
+    lat: number
+    lon: number
+}
+
+const LOCATION_PREF_KEY = "dashboard.weather.location.v1"
+
+export function getLocationPreference(): LocationPreference {
+    if (typeof window === "undefined") return { mode: "auto" }
+    try {
+        const raw = localStorage.getItem(LOCATION_PREF_KEY)
+        if (!raw) return { mode: "auto" }
+        const parsed = JSON.parse(raw) as Partial<LocationPreference>
+        if (
+            parsed.mode === "manual" &&
+            typeof parsed.name === "string" &&
+            typeof parsed.lat === "number" &&
+            typeof parsed.lon === "number" &&
+            Number.isFinite(parsed.lat) &&
+            Number.isFinite(parsed.lon)
+        ) {
+            return {
+                mode: "manual",
+                name: parsed.name,
+                lat: parsed.lat,
+                lon: parsed.lon,
+            }
+        }
+    } catch {
+        // ignore
+    }
+    return { mode: "auto" }
+}
+
+export function setLocationPreference(pref: LocationPreference): void {
+    if (typeof window === "undefined") return
+    try {
+        localStorage.setItem(LOCATION_PREF_KEY, JSON.stringify(pref))
+        window.dispatchEvent(new Event("dashboard:location-changed"))
+    } catch {
+        // ignore
+    }
+}
+
+export async function searchLocations(query: string): Promise<LocationSearchResult[]> {
+    const q = query.trim()
+    if (!q) return []
+    try {
+        const url = new URL("/api/weather", window.location.origin)
+        url.searchParams.set("search", q)
+        const res = await fetch(url.toString(), { cache: "no-store" })
+        if (!res.ok) return []
+        const data = (await res.json()) as unknown
+        return Array.isArray(data) ? (data as LocationSearchResult[]) : []
+    } catch {
+        return []
+    }
+}
+
 export async function fetchWeather(
     coords?: { lat: number; lon: number },
     force = false

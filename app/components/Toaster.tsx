@@ -1,10 +1,22 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
+import {
+    createContext,
+    useCallback,
+    useContext,
+    useMemo,
+    useRef,
+    useState,
+} from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import type { ReactNode } from "react"
+import {
+    IoAlertCircleOutline,
+    IoCheckmarkCircleOutline,
+    IoClose,
+} from "react-icons/io5"
 
-export type ToastKind = "info" | "success" | "error"
+export type ToastKind = "info" | "success" | "error" | "warning"
 
-interface Toast {
+export interface ToastItemData {
     id: number
     message: string
     kind: ToastKind
@@ -25,86 +37,109 @@ export function useToaster(): ToasterContextValue {
     return ctx
 }
 
+const TOAST_STYLE: Record<
+    ToastKind,
+    {
+        container: string
+        closeBtn: string
+        Icon?: typeof IoCheckmarkCircleOutline
+    }
+> = {
+    info: {
+        container: "bg-[#111214] border border-white/12 text-white",
+        closeBtn: "text-white/50 hover:text-white hover:bg-white/10",
+    },
+    success: {
+        container: "bg-[#16a34a] border border-transparent text-white",
+        closeBtn: "text-white/75 hover:text-white hover:bg-black/15",
+        Icon: IoCheckmarkCircleOutline,
+    },
+    error: {
+        container: "bg-[#dc2626] border border-transparent text-white",
+        closeBtn: "text-white/75 hover:text-white hover:bg-black/15",
+        Icon: IoAlertCircleOutline,
+    },
+    warning: {
+        container: "bg-[#f97316] border border-transparent text-black",
+        closeBtn: "text-black/60 hover:text-black hover:bg-black/10",
+        Icon: IoAlertCircleOutline,
+    },
+}
+
+export function ToastBar({
+    toast,
+    onClose,
+}: {
+    toast: ToastItemData
+    onClose: (id: number) => void
+}) {
+    const { container, closeBtn, Icon } = TOAST_STYLE[toast.kind]
+
+    return (
+        <motion.div
+            layout
+            initial={{ opacity: 0, x: 48, scale: 0.94 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 48, scale: 0.94 }}
+            transition={{ type: "spring", stiffness: 420, damping: 32, mass: 0.8 }}
+            className={`pointer-events-auto flex items-center gap-2.5 w-[340px] max-w-[calc(100vw-3rem)] min-h-[46px] rounded-lg px-4 py-3 shadow-xl ${container}`}
+        >
+            {Icon ? <Icon className="w-5 h-5 shrink-0" /> : null}
+            <div className="flex-1 min-w-0 min-h-5 flex items-center text-sm font-semibold leading-snug break-words">
+                {toast.message}
+            </div>
+            <button
+                type="button"
+                aria-label="Close toast"
+                onClick={() => onClose(toast.id)}
+                className={`w-6 h-6 shrink-0 rounded flex items-center justify-center transition cursor-pointer ${closeBtn}`}
+            >
+                <IoClose className="w-4 h-4" />
+            </button>
+        </motion.div>
+    )
+}
+
 export function ToasterProvider({ children }: { children: ReactNode }) {
-    const [toasts, setToasts] = useState<Toast[]>([])
+    const [toasts, setToasts] = useState<ToastItemData[]>([])
+    const timersRef = useRef<Map<number, number>>(new Map())
 
     const removeToast = useCallback((id: number) => {
+        const timer = timersRef.current.get(id)
+        if (timer != null) {
+            window.clearTimeout(timer)
+            timersRef.current.delete(id)
+        }
         setToasts((prev) => prev.filter((t) => t.id !== id))
     }, [])
 
     const pushToast = useCallback(
         (message: string, opts?: { kind?: ToastKind; durationMs?: number }) => {
-            const duration = Math.max(1200, Math.min(10000, opts?.durationMs ?? 10000))
+            const duration = Math.max(1200, Math.min(10000, opts?.durationMs ?? 4000))
             const kind = opts?.kind ?? "info"
             const id = Date.now() + Math.random()
 
             setToasts((prev) => [...prev, { id, message, kind, duration }])
 
-            window.setTimeout(() => {
+            const timer = window.setTimeout(() => {
                 removeToast(id)
             }, duration)
+            timersRef.current.set(id, timer)
         },
         [removeToast]
     )
 
     const value = useMemo<ToasterContextValue>(() => ({ pushToast }), [pushToast])
 
-    const palette: Record<ToastKind, { bg: string; border: string; text: string }> = {
-        info: {
-            bg: "bg-slate-500",
-            border: "border-slate-500",
-            text: "text-slate-50",
-        },
-        success: {
-            bg: "bg-emerald-500",
-            border: "border-emerald-500",
-            text: "text-emerald-50",
-        },
-        error: {
-            bg: "bg-rose-500    ",
-            border: "border-rose-500",
-            text: "text-rose-50",
-        },
-    }
-
     return (
         <ToasterContext.Provider value={value}>
             {children}
 
-            <div className="fixed right-6 bottom-6 z-50 flex flex-col items-end gap-3">
-                <AnimatePresence initial={false}>
-                    {toasts.map((t) => {
-                        const colors = palette[t.kind]
-                        return (
-                            <motion.div
-                                key={t.id}
-                                initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                exit={{ opacity: 0, y: 6, scale: 0.98 }}
-                                transition={{ duration: 0.18, ease: "easeOut" }}
-                                className={
-                                    "pointer-events-auto relative w-full max-w-[320px] rounded-xl border px-4 py-3 shadow-xl backdrop-blur break-words " +
-                                    colors.bg +
-                                    " " +
-                                    colors.border +
-                                    " " +
-                                    colors.text
-                                }
-                            >
-                                <button
-                                    aria-label="Close toast"
-                                    className="absolute right-2 top-2 h-6 w-6 rounded-full bg-white/10 text-white/80 hover:bg-white/20 hover:text-white transition"
-                                    onClick={() => removeToast(t.id)}
-                                >
-                                    ×
-                                </button>
-
-                                <div className="text-sm font-semibold leading-tight pr-6 break-words">
-                                    {t.message}
-                                </div>
-                            </motion.div>
-                        )
-                    })}
+            <div className="fixed right-6 bottom-6 z-50 flex flex-col items-end gap-2.5 pointer-events-none">
+                <AnimatePresence mode="popLayout">
+                    {toasts.map((t) => (
+                        <ToastBar key={t.id} toast={t} onClose={removeToast} />
+                    ))}
                 </AnimatePresence>
             </div>
         </ToasterContext.Provider>

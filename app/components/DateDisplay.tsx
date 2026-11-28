@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react"
+import { isLightClockAppearance, useClockAppearance } from "./Clock"
 
 export function DateDisplay() {
     const [date, setDate] = useState(new Date())
+    const isLight = isLightClockAppearance(useClockAppearance())
 
     useEffect(() => {
         const now = new Date()
@@ -35,7 +37,11 @@ export function DateDisplay() {
     }
 
     return (
-        <div className="text-white text-[clamp(1.25rem,2.4vw,2.5rem)] font-bold font-['Inter'] leading-tight">
+        <div
+            className={`text-[clamp(1.25rem,2.4vw,2.5rem)] font-bold font-['Inter'] leading-tight ${
+                isLight ? "text-zinc-800" : "text-white"
+            }`}
+        >
             {formatDate(date)}
         </div>
     )

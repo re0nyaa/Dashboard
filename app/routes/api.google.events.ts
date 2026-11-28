@@ -58,9 +58,9 @@ function buildGoogleEventPayload(body: {
 
     if (body.allDay) {
         const endDate = body.endDate || body.startDate
-        // Google Calendar all-day end.date is exclusive
-        const endObj = new Date(`${endDate}T00:00:00`)
-        endObj.setDate(endObj.getDate() + 1)
+        // Google Calendar all-day end.date is exclusive (use UTC date math to avoid TZ shift)
+        const endObj = new Date(`${endDate}T00:00:00Z`)
+        endObj.setUTCDate(endObj.getUTCDate() + 1)
         const exclusiveEnd = endObj.toISOString().slice(0, 10)
         return {
             ...base,

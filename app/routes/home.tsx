@@ -10,7 +10,7 @@ import {
     IoRefresh,
     IoRemove,
 } from "react-icons/io5"
-import { Clock } from "~/components/Clock"
+import { Clock, getClockBackgroundCss, useClockAppearance } from "~/components/Clock"
 import { DateDisplay } from "~/components/DateDisplay"
 import { NewsCarousel } from "~/components/NewsCarousel"
 import { MusicPlayer } from "~/components/MusicPlayer"
@@ -226,7 +226,10 @@ export default function Home() {
     const startXRef = useRef<number | null>(null)
     const startYRef = useRef<number | null>(null)
     const swipeLockRef = useRef(false)
-    const gestureModeRef = useRef<"none" | "horizontal" | "settings-open" | "settings-close">("none")
+    const gestureModeRef = useRef<
+        "none" | "horizontal" | "vertical" | "settings-open" | "settings-close"
+    >("none")
+    const settingsDragProgressRef = useRef(0)
 
     const [showIndicator, setShowIndicator] = useState(false)
     const indicatorTimerRef = useRef<number | null>(null)
@@ -324,6 +327,10 @@ export default function Home() {
 
     const handlePointerMove: React.PointerEventHandler<HTMLDivElement> = (e) => {
         if (editMode || swipeLockRef.current) return
+        if (e.pointerType === "mouse" && e.buttons === 0 && startXRef.current !== null) {
+            handlePointerEnd()
+            return
+        }
         const sx = startXRef.current
         const sy = startYRef.current
         if (sx == null || sy == null) return
@@ -346,7 +353,9 @@ export default function Home() {
             } else if (!settingsOpen && safePage === 0 && dy < -10 && Math.abs(dy) > Math.abs(dx)) {
                 gestureModeRef.current = "settings-open"
                 setIsDraggingSettings(true)
-            } else if (!settingsOpen && Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy)) {
+            } else if (!settingsOpen && Math.abs(dy) > 14 && Math.abs(dy) > Math.abs(dx)) {
+                gestureModeRef.current = "vertical"
+            } else if (!settingsOpen && Math.abs(dx) > 16 && Math.abs(dx) > Math.abs(dy) * 1.2) {
                 gestureModeRef.current = "horizontal"
             }
         }
@@ -355,17 +364,24 @@ export default function Home() {
 
         if (gestureModeRef.current === "settings-open") {
             const progress = Math.max(0, Math.min(1, -dy / dragRange))
+            settingsDragProgressRef.current = progress
             setSettingsDragProgress(progress)
             return
         }
 
         if (gestureModeRef.current === "settings-close") {
             const progress = Math.max(0, Math.min(1, 1 - dy / dragRange))
+            settingsDragProgressRef.current = progress
             setSettingsDragProgress(progress)
             return
         }
 
-        if (!settingsOpen && Math.abs(dx) > 70 && Math.abs(dy) < Math.abs(dx) * 0.6) {
+        if (
+            !settingsOpen &&
+            gestureModeRef.current === "horizontal" &&
+            Math.abs(dx) > 85 &&
+            Math.abs(dy) < Math.abs(dx) * 0.5
+        ) {
             swipeLockRef.current = true
             if (dx < 0) {
                 goNext()
@@ -385,22 +401,27 @@ export default function Home() {
             longPressTimer.current = null
         }
 
+        const currentProgress = settingsDragProgressRef.current
         if (gestureModeRef.current === "settings-open") {
             setIsDraggingSettings(false)
-            if (settingsDragProgress >= 0.24) {
+            if (currentProgress >= 0.2) {
                 setSettingsOpen(true)
+                settingsDragProgressRef.current = 1
                 setSettingsDragProgress(1)
             } else {
                 setSettingsOpen(false)
+                settingsDragProgressRef.current = 0
                 setSettingsDragProgress(0)
             }
         } else if (gestureModeRef.current === "settings-close") {
             setIsDraggingSettings(false)
-            if (settingsDragProgress <= 0.78) {
+            if (currentProgress <= 0.8) {
                 setSettingsOpen(false)
+                settingsDragProgressRef.current = 0
                 setSettingsDragProgress(0)
             } else {
                 setSettingsOpen(true)
+                settingsDragProgressRef.current = 1
                 setSettingsDragProgress(1)
             }
         }
@@ -410,13 +431,29 @@ export default function Home() {
         startYRef.current = null
     }
 
+    useEffect(() => {
+        if (!isDraggingSettings) return
+        const onGlobalEnd = () => handlePointerEnd()
+        window.addEventListener("pointerup", onGlobalEnd)
+        window.addEventListener("pointercancel", onGlobalEnd)
+        window.addEventListener("blur", onGlobalEnd)
+        return () => {
+            window.removeEventListener("pointerup", onGlobalEnd)
+            window.removeEventListener("pointercancel", onGlobalEnd)
+            window.removeEventListener("blur", onGlobalEnd)
+        }
+    }, [isDraggingSettings])
+
     const currentWidget = safePage > 0 ? widgets[safePage - 1] : null
     const pageKey = safePage === 0 ? "clock-page" : `widget-${currentWidget?.id}`
 
+    const clockAppearance = useClockAppearance()
+    const clockBgCss = getClockBackgroundCss(clockAppearance)
+
     return (
         <div
-            className="w-screen h-[100svh] bg-[#1e1e1e] text-white overflow-hidden relative flex flex-col items-center justify-center select-none"
-            style={{ touchAction: editMode ? "auto" : "none" }}
+            className="w-screen h-[100svh] text-white overflow-hidden relative flex flex-col items-center justify-center select-none"
+            style={{ touchAction: editMode ? "auto" : "none", background: clockBgCss }}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerEnd}
@@ -429,10 +466,12 @@ export default function Home() {
                 isDragging={isDraggingSettings}
                 onClose={() => {
                     setSettingsOpen(false)
+                    settingsDragProgressRef.current = 0
                     setSettingsDragProgress(0)
                 }}
                 onOpenWidgetEditor={() => {
                     setSettingsOpen(false)
+                    settingsDragProgressRef.current = 0
                     setSettingsDragProgress(0)
                     setEditMode(true)
                 }}
@@ -611,7 +650,10 @@ export default function Home() {
                                                               : "ring-1 ring-white/15 hover:ring-white/35 shadow-[0_10px_28px_rgba(0,0,0,0.45)]"
                                                     }`}
                                                 >
-                                                    <div className="w-full h-full rounded-[20px] overflow-hidden bg-[#1e1e1e] pointer-events-none">
+                                                    <div
+                                                        className="w-full h-full rounded-[20px] overflow-hidden pointer-events-none"
+                                                        style={{ background: clockBgCss }}
+                                                    >
                                                         <ScaledWidgetBox>
                                                             {widget.render()}
                                                         </ScaledWidgetBox>

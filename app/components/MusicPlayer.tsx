@@ -195,6 +195,10 @@ type SpotifyPlayerCache = {
     deviceName: string
     contextUri: string | null
     isPlaying: boolean
+    progressBaseMs: number
+    progressSyncAt: number
+    isSaved: boolean
+    savedTrackId: string | null
     shuffleOn: boolean
     repeatMode: "off" | "track" | "context"
     accentColor: string
@@ -219,6 +223,13 @@ function loadSpotifyPlayerCache(): SpotifyPlayerCache {
                         typeof parsed.deviceName === "string" ? parsed.deviceName : "Device",
                     contextUri: typeof parsed.contextUri === "string" ? parsed.contextUri : null,
                     isPlaying: Boolean(parsed.isPlaying),
+                    progressBaseMs:
+                        typeof parsed.progressBaseMs === "number" ? parsed.progressBaseMs : 0,
+                    progressSyncAt:
+                        typeof parsed.progressSyncAt === "number" ? parsed.progressSyncAt : 0,
+                    isSaved: Boolean(parsed.isSaved),
+                    savedTrackId:
+                        typeof parsed.savedTrackId === "string" ? parsed.savedTrackId : null,
                     shuffleOn: Boolean(parsed.shuffleOn),
                     repeatMode:
                         parsed.repeatMode === "track" || parsed.repeatMode === "context"
@@ -244,6 +255,10 @@ function loadSpotifyPlayerCache(): SpotifyPlayerCache {
         deviceName: "Device",
         contextUri: null,
         isPlaying: false,
+        progressBaseMs: 0,
+        progressSyncAt: 0,
+        isSaved: false,
+        savedTrackId: null,
         shuffleOn: false,
         repeatMode: "off",
         accentColor: "#838383",
@@ -282,21 +297,26 @@ function MarqueeText({ text, className = "" }: { text: string; className?: strin
             const wrap = wrapRef.current
             const el = measureRef.current
             if (!wrap || !el) return
-            const should = el.scrollWidth > wrap.clientWidth + 4
+            const wrapW = wrap.getBoundingClientRect().width
+            const textW = el.getBoundingClientRect().width
+            if (wrapW <= 0) return
+            const should = textW > wrapW
             setMarqueeOn((prev) => (prev === should ? prev : should))
         }
         raf1 = requestAnimationFrame(() => {
             raf2 = requestAnimationFrame(measure)
         })
+        const tAfterTransition = window.setTimeout(measure, 340)
         const ro = new ResizeObserver(() => measure())
         if (wrapRef.current) ro.observe(wrapRef.current)
         if (measureRef.current) ro.observe(measureRef.current)
         return () => {
             cancelAnimationFrame(raf1)
             cancelAnimationFrame(raf2)
+            window.clearTimeout(tAfterTransition)
             ro.disconnect()
         }
-    }, [text, marqueeOn])
+    }, [text, className, marqueeOn])
 
     useEffect(() => {
         const inner = innerRef.current
@@ -312,23 +332,31 @@ function MarqueeText({ text, className = "" }: { text: string; className?: strin
             inner.style.transform = "translateX(0px)"
             return
         }
-        const SPEED_PX_PER_SEC = 70
-        const GAP_PX = 64
-        const PAUSE_MS = 3000
+        const SPEED_PX_PER_SEC = 28
+        const PAUSE_MS = 2000
         offsetRef.current = 0
         lastTsRef.current = null
         pauseUntilRef.current = performance.now() + PAUSE_MS
         inner.style.transform = "translateX(0px)"
+        let dir: 1 | -1 = 1
         let raf = 0
         const tick = (ts: number) => {
             const innerEl = innerRef.current
-            const firstBlock = measureRef.current
-            if (!innerEl || !firstBlock) return
-            const cycleW = firstBlock.scrollWidth + GAP_PX
-            if (!Number.isFinite(cycleW) || cycleW <= 0) {
+            const wrapEl = wrapRef.current
+            const textEl = measureRef.current
+            if (!innerEl || !wrapEl || !textEl) return
+
+            const maxOffset = Math.max(
+                0,
+                textEl.getBoundingClientRect().width - wrapEl.getBoundingClientRect().width
+            )
+            if (!Number.isFinite(maxOffset) || maxOffset <= 0) {
+                offsetRef.current = 0
+                innerEl.style.transform = "translateX(0px)"
                 raf = requestAnimationFrame(tick)
                 return
             }
+
             const last = lastTsRef.current ?? ts
             lastTsRef.current = ts
             const pauseUntil = pauseUntilRef.current
@@ -336,15 +364,23 @@ function MarqueeText({ text, className = "" }: { text: string; className?: strin
                 raf = requestAnimationFrame(tick)
                 return
             }
-            const dtMs = ts - last
-            const deltaPx = (dtMs / 1000) * SPEED_PX_PER_SEC
+
+            const dtMs = Math.min(50, Math.max(0, ts - last))
+            const deltaPx = (dtMs / 1000) * SPEED_PX_PER_SEC * dir
             let next = offsetRef.current + deltaPx
-            if (next >= cycleW) {
+
+            if (dir === 1 && next >= maxOffset) {
+                next = maxOffset
+                dir = -1
+                pauseUntilRef.current = ts + PAUSE_MS
+            } else if (dir === -1 && next <= 0) {
                 next = 0
+                dir = 1
                 pauseUntilRef.current = ts + PAUSE_MS
             }
+
             offsetRef.current = next
-            innerEl.style.transform = `translateX(${-next}px)`
+            innerEl.style.transform = `translateX(${-next.toFixed(2)}px)`
             raf = requestAnimationFrame(tick)
         }
         raf = requestAnimationFrame(tick)
@@ -352,22 +388,23 @@ function MarqueeText({ text, className = "" }: { text: string; className?: strin
     }, [marqueeOn, text])
 
     return (
-        <div ref={wrapRef} className={`overflow-hidden whitespace-nowrap ${className}`}>
+        <div ref={wrapRef} className={`relative overflow-hidden whitespace-nowrap ${className}`}>
+            <span
+                ref={measureRef}
+                aria-hidden="true"
+                className="absolute left-0 top-0 invisible pointer-events-none whitespace-nowrap"
+            >
+                {text}
+            </span>
             {marqueeOn ? (
-                <div className="marquee">
-                    <div ref={innerRef} className="marquee__inner">
-                        <div ref={measureRef} className="marquee__block">
-                            {text}
-                        </div>
-                        <div className="marquee__block" aria-hidden="true">
-                            {text}
-                        </div>
-                    </div>
-                </div>
-            ) : (
-                <div ref={measureRef} className="truncate">
+                <div
+                    ref={innerRef}
+                    className="inline-block whitespace-nowrap will-change-transform"
+                >
                     {text}
                 </div>
+            ) : (
+                <div className="whitespace-nowrap">{text}</div>
             )}
         </div>
     )
@@ -395,11 +432,27 @@ export function MusicPlayer() {
         () => loadSpotifyPlayerCache().accentColor
     )
     // 시간 보정
-    const [progressBaseMs, setProgressBaseMs] = useState(0)
-    const [progressSyncAt, setProgressSyncAt] = useState(0)
-    const [displayProgressMs, setDisplayProgressMs] = useState(0)
+    const [progressBaseMs, setProgressBaseMs] = useState(
+        () => loadSpotifyPlayerCache().progressBaseMs
+    )
+    const [progressSyncAt, setProgressSyncAt] = useState(
+        () => loadSpotifyPlayerCache().progressSyncAt
+    )
+    const [displayProgressMs, setDisplayProgressMs] = useState(() => {
+        const c = loadSpotifyPlayerCache()
+        if (!c.currentTrack) return 0
+        if (!c.isPlaying || !c.progressSyncAt) return c.progressBaseMs
+        return Math.min(
+            c.currentTrack.duration,
+            Math.max(0, Math.floor(c.progressBaseMs + (Date.now() - c.progressSyncAt)))
+        )
+    })
     const [isSeeking, setIsSeeking] = useState(false)
-    const [isSaved, setIsSaved] = useState(false)
+    const [isSaved, setIsSaved] = useState(() => {
+        const c = loadSpotifyPlayerCache()
+        return Boolean(c.currentTrack?.id && c.savedTrackId === c.currentTrack.id && c.isSaved)
+    })
+    const [heartBurstId, setHeartBurstId] = useState(0)
     const [playlistTab, setPlaylistTab] = useState<"playlist" | "library">("playlist")
     const [libraryFilter, setLibraryFilter] = useState<"all" | LibraryItemType>("all")
     const [libraryItems, setLibraryItems] = useState<SpotifyLibraryItem[]>([])
@@ -435,7 +488,10 @@ export function MusicPlayer() {
     const hasDraggedPlaylistRef = useRef(false)
     useEffect(() => {
         if (!currentTrack) return
-        const seed = Math.max(1, Math.floor(currentTrack.duration) * Math.max(1, currentTrack.title.length))
+        const seed = Math.max(
+            1,
+            Math.floor(currentTrack.duration) * Math.max(1, currentTrack.title.length)
+        )
         ambientSeedRef.current = seed
         currentTrackMetaRef.current = {
             duration: currentTrack.duration,
@@ -720,6 +776,7 @@ export function MusicPlayer() {
             setProgressBaseMs(nextBase)
             setProgressSyncAt(now)
             setDisplayProgressMs(nextBase)
+            saveSpotifyPlayerCache({ progressBaseMs: nextBase, progressSyncAt: now })
         }
     }
     const dominantColorCacheRef = useRef<Map<string, string>>(new Map())
@@ -799,7 +856,7 @@ export function MusicPlayer() {
         if (isSeeking) return
         const tick = () => {
             if (!currentTrack) return
-            if (!isPlaying) {
+            if (!isPlaying || !progressSyncAt) {
                 setDisplayProgressMs(progressBaseMs)
                 return
             }
@@ -898,10 +955,12 @@ export function MusicPlayer() {
             setIsSaved(false)
             return
         }
+        const trackId = currentTrack.id
         let active = true
-        void checkSavedTrack(accessToken, currentTrack.id).then((saved) => {
+        void checkSavedTrack(accessToken, trackId).then((saved) => {
             if (!active || saved === null) return
             setIsSaved(saved)
+            saveSpotifyPlayerCache({ isSaved: saved, savedTrackId: trackId })
         })
         return () => {
             active = false
@@ -944,9 +1003,12 @@ export function MusicPlayer() {
         if (!accessToken || !currentTrack?.id) return
         const next = !isSaved
         setIsSaved(next)
+        if (next) setHeartBurstId((n) => n + 1)
+        saveSpotifyPlayerCache({ isSaved: next, savedTrackId: currentTrack.id })
         const ok = await setSavedTrack(accessToken, currentTrack.id, next)
         if (!ok) {
             setIsSaved(!next)
+            saveSpotifyPlayerCache({ isSaved: !next, savedTrackId: currentTrack.id })
         }
     }
 
@@ -1003,7 +1065,7 @@ export function MusicPlayer() {
                         Spotify 연결
                     </h2>
                     <p className="mt-2 text-white/50 text-sm sm:text-base">
-                        계정을 연결하면 재생 중인 음악과 플레이리스트를 제어할 수 있습니다
+                        계정을 연결해서 좋아하는 노래는 재생해보세요.
                     </p>
                 </div>
                 <button
@@ -1116,9 +1178,7 @@ export function MusicPlayer() {
                                     ? "bg-white text-neutral-950 ring-white"
                                     : "bg-white/10 hover:bg-white/15 text-white/80 hover:text-white ring-white/15"
                             }`}
-                            aria-label={
-                                showPlaylist ? "재생목록 접기" : "재생목록 열기"
-                            }
+                            aria-label={showPlaylist ? "재생목록 접기" : "재생목록 열기"}
                         >
                             <span>재생목록</span>
                         </button>
@@ -1131,7 +1191,6 @@ export function MusicPlayer() {
                         showPlaylist ? "gap-6 max-w-[820px]" : "gap-8 sm:gap-10 max-w-[1240px]"
                     }`}
                 >
-
                     {/* 앨범 아트 + 곡 정보 + 프로그레스 + 컨트롤 (접기 시 좌우 분할) */}
                     <div
                         className={`grid min-w-0 ${
@@ -1186,13 +1245,76 @@ export function MusicPlayer() {
                                     onPointerDown={(e) => e.stopPropagation()}
                                     onClick={handleToggleSave}
                                     aria-label={isSaved ? "좋아요 취소" : "좋아요"}
-                                    className="shrink-0 p-2 rounded-full hover:bg-white/10 transition active:scale-90 cursor-pointer"
+                                    className="relative shrink-0 p-2 rounded-full hover:bg-white/10 transition active:scale-90 cursor-pointer"
                                 >
-                                    {isSaved ? (
-                                        <FaHeart className="w-6 h-6 sm:w-7 sm:h-7 text-[#1DB954]" />
-                                    ) : (
-                                        <FaRegHeart className="w-6 h-6 sm:w-7 sm:h-7 text-white/60 hover:text-white" />
-                                    )}
+                                    {heartBurstId > 0 ? (
+                                        <span
+                                            key={heartBurstId}
+                                            className="absolute inset-0 pointer-events-none flex items-center justify-center"
+                                        >
+                                            <motion.span
+                                                initial={{ scale: 0.4, opacity: 0.85 }}
+                                                animate={{ scale: 1.9, opacity: 0 }}
+                                                transition={{ duration: 0.42, ease: "easeOut" }}
+                                                className="absolute w-7 h-7 rounded-full border-2 border-[#1DB954]"
+                                            />
+                                            {Array.from({ length: 8 }, (_, idx) => {
+                                                const angle = (idx / 8) * Math.PI * 2
+                                                const dist = idx % 2 === 0 ? 24 : 18
+                                                const tx = Math.cos(angle) * dist
+                                                const ty = Math.sin(angle) * dist
+                                                const color =
+                                                    idx % 3 === 0
+                                                        ? "#1DB954"
+                                                        : idx % 3 === 1
+                                                          ? "#86EFAC"
+                                                          : "#FFFFFF"
+                                                return (
+                                                    <motion.span
+                                                        key={idx}
+                                                        initial={{
+                                                            x: 0,
+                                                            y: 0,
+                                                            scale: 0.4,
+                                                            opacity: 1,
+                                                        }}
+                                                        animate={{
+                                                            x: tx,
+                                                            y: ty,
+                                                            scale: [0.6, 1.1, 0],
+                                                            opacity: [1, 1, 0],
+                                                        }}
+                                                        transition={{
+                                                            duration: 0.48,
+                                                            ease: [0.16, 1, 0.3, 1],
+                                                        }}
+                                                        className="absolute w-1.5 h-1.5 rounded-full"
+                                                        style={{ backgroundColor: color }}
+                                                    />
+                                                )
+                                            })}
+                                        </span>
+                                    ) : null}
+                                    <motion.span
+                                        key={isSaved ? `saved-${heartBurstId}` : "unsaved"}
+                                        initial={
+                                            isSaved && heartBurstId > 0 ? { scale: 0.7 } : false
+                                        }
+                                        animate={{
+                                            scale:
+                                                isSaved && heartBurstId > 0
+                                                    ? [0.7, 1.32, 0.92, 1]
+                                                    : 1,
+                                        }}
+                                        transition={{ duration: 0.34, ease: "easeOut" }}
+                                        className="block relative z-10"
+                                    >
+                                        {isSaved ? (
+                                            <FaHeart className="w-6 h-6 sm:w-7 sm:h-7 text-[#1DB954]" />
+                                        ) : (
+                                            <FaRegHeart className="w-6 h-6 sm:w-7 sm:h-7 text-white/60 hover:text-white" />
+                                        )}
+                                    </motion.span>
                                 </button>
                             ) : null}
                         </motion.div>
@@ -1406,7 +1528,7 @@ export function MusicPlayer() {
                                     }
                                 />
                                 {repeatMode === "track" && (
-                                    <span className="absolute -top-1.5 -right-2 text-[10px] font-bold bg-white text-black rounded-full w-4 h-4 flex items-center justify-center">
+                                    <span className="absolute inset-0 flex items-center justify-center text-[10px] sm:text-[11px] font-extrabold text-white leading-none pointer-events-none">
                                         1
                                     </span>
                                 )}
@@ -1443,7 +1565,9 @@ export function MusicPlayer() {
                                             className="text-2xl font-bold leading-tight"
                                             style={{ color: textColor }}
                                         >
-                                            {playlistTab === "playlist" ? "재생목록" : "내 라이브러리"}
+                                            {playlistTab === "playlist"
+                                                ? "재생목록"
+                                                : "내 라이브러리"}
                                         </div>
                                         <div
                                             className="text-xs font-medium truncate mt-0.5"
@@ -1464,7 +1588,10 @@ export function MusicPlayer() {
                                                 initial={{ opacity: 0, x: -16 }}
                                                 animate={{ opacity: 1, x: 0 }}
                                                 exit={{ opacity: 0, x: -16 }}
-                                                transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                                                transition={{
+                                                    duration: 0.18,
+                                                    ease: [0.22, 1, 0.36, 1],
+                                                }}
                                                 ref={playlistScrollRef}
                                                 onMouseDown={handlePlaylistMouseDown}
                                                 onMouseMove={handlePlaylistMouseMove}
@@ -1473,11 +1600,15 @@ export function MusicPlayer() {
                                                 onTouchStart={(e) => e.stopPropagation()}
                                                 onTouchMove={(e) => e.stopPropagation()}
                                                 onPointerDown={(e) => e.stopPropagation()}
-                                                className="flex-1 overflow-y-auto no-scrollbar space-y-3 cursor-grab active:cursor-grabbing touch-pan-y select-none"
+                                                className="flex-1 overflow-y-auto no-scrollbar space-y-3 pb-5 cursor-grab active:cursor-grabbing touch-pan-y select-none"
                                                 style={{
                                                     touchAction: "pan-y",
                                                     overscrollBehavior: "contain",
                                                     WebkitOverflowScrolling: "touch",
+                                                    maskImage:
+                                                        "linear-gradient(to bottom, black 0%, black calc(100% - 36px), transparent 100%)",
+                                                    WebkitMaskImage:
+                                                        "linear-gradient(to bottom, black 0%, black calc(100% - 36px), transparent 100%)",
                                                 }}
                                             >
                                                 {listItems.map((t, idx) => (
@@ -1487,7 +1618,8 @@ export function MusicPlayer() {
                                                         role="button"
                                                         aria-label={`Play ${t.title}`}
                                                         onClick={() => {
-                                                            if (hasDraggedPlaylistRef.current) return
+                                                            if (hasDraggedPlaylistRef.current)
+                                                                return
                                                             void handlePlayQueueItem(t.uri)
                                                         }}
                                                     >
@@ -1529,7 +1661,10 @@ export function MusicPlayer() {
                                                 initial={{ opacity: 0, x: 16 }}
                                                 animate={{ opacity: 1, x: 0 }}
                                                 exit={{ opacity: 0, x: 16 }}
-                                                transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                                                transition={{
+                                                    duration: 0.18,
+                                                    ease: [0.22, 1, 0.36, 1],
+                                                }}
                                                 className="flex-1 min-h-0 flex flex-col"
                                             >
                                                 {/* 필터 칩 */}
@@ -1537,7 +1672,10 @@ export function MusicPlayer() {
                                                     {(
                                                         [
                                                             { id: "all", label: "전체" },
-                                                            { id: "playlist", label: "플레이리스트" },
+                                                            {
+                                                                id: "playlist",
+                                                                label: "플레이리스트",
+                                                            },
                                                             { id: "album", label: "앨범" },
                                                             { id: "artist", label: "아티스트" },
                                                         ] as const
@@ -1550,13 +1688,10 @@ export function MusicPlayer() {
                                                                 onClick={() =>
                                                                     setLibraryFilter(f.id)
                                                                 }
-                                                                className="px-3 py-1 rounded-full text-[11px] font-semibold shrink-0 transition cursor-pointer"
+                                                                className="relative px-3 py-1 rounded-full text-[11px] font-semibold shrink-0 transition-colors cursor-pointer"
                                                                 style={{
                                                                     backgroundColor: active
-                                                                        ? applyOpacity(
-                                                                              textColor,
-                                                                              0.24
-                                                                          ).rgba
+                                                                        ? "transparent"
                                                                         : applyOpacity(
                                                                               textColor,
                                                                               0.1
@@ -1569,100 +1704,156 @@ export function MusicPlayer() {
                                                                           ).rgba,
                                                                 }}
                                                             >
-                                                                {f.label}
+                                                                {active ? (
+                                                                    <motion.span
+                                                                        layoutId="library-filter-pill"
+                                                                        transition={{
+                                                                            type: "spring",
+                                                                            stiffness: 420,
+                                                                            damping: 32,
+                                                                        }}
+                                                                        className="absolute inset-0 rounded-full"
+                                                                        style={{
+                                                                            backgroundColor:
+                                                                                applyOpacity(
+                                                                                    textColor,
+                                                                                    0.24
+                                                                                ).rgba,
+                                                                        }}
+                                                                    />
+                                                                ) : null}
+                                                                <span className="relative z-10">
+                                                                    {f.label}
+                                                                </span>
                                                             </button>
                                                         )
                                                     })}
                                                 </div>
 
                                                 {/* 라이브러리 목록 */}
-                                                <div
-                                                    ref={playlistScrollRef}
-                                                    onMouseDown={handlePlaylistMouseDown}
-                                                    onMouseMove={handlePlaylistMouseMove}
-                                                    onMouseUp={handlePlaylistMouseUpOrLeave}
-                                                    onMouseLeave={handlePlaylistMouseUpOrLeave}
-                                                    onTouchStart={(e) => e.stopPropagation()}
-                                                    onTouchMove={(e) => e.stopPropagation()}
-                                                    onPointerDown={(e) => e.stopPropagation()}
-                                                    className="flex-1 overflow-y-auto no-scrollbar space-y-2 pr-1 cursor-grab active:cursor-grabbing touch-pan-y select-none"
-                                                    style={{
-                                                        touchAction: "pan-y",
-                                                        overscrollBehavior: "contain",
-                                                        WebkitOverflowScrolling: "touch",
-                                                    }}
-                                                >
-                                                    {libraryNeedsRelogin &&
-                                                    filteredLibraryItems.length === 0 ? (
-                                                        <div
-                                                            className="text-xs py-10 text-center leading-relaxed"
+                                                <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                                                    <AnimatePresence mode="wait" initial={false}>
+                                                        <motion.div
+                                                            key={libraryFilter}
+                                                            initial={{ opacity: 0, y: 8 }}
+                                                            animate={{ opacity: 1, y: 0 }}
+                                                            exit={{ opacity: 0, y: -6 }}
+                                                            transition={{
+                                                                duration: 0.16,
+                                                                ease: [0.22, 1, 0.36, 1],
+                                                            }}
+                                                            ref={playlistScrollRef}
+                                                            onMouseDown={handlePlaylistMouseDown}
+                                                            onMouseMove={handlePlaylistMouseMove}
+                                                            onMouseUp={handlePlaylistMouseUpOrLeave}
+                                                            onMouseLeave={
+                                                                handlePlaylistMouseUpOrLeave
+                                                            }
+                                                            onTouchStart={(e) =>
+                                                                e.stopPropagation()
+                                                            }
+                                                            onTouchMove={(e) => e.stopPropagation()}
+                                                            onPointerDown={(e) =>
+                                                                e.stopPropagation()
+                                                            }
+                                                            className="flex-1 overflow-y-auto no-scrollbar space-y-2 pr-1 pb-5 cursor-grab active:cursor-grabbing touch-pan-y select-none"
                                                             style={{
-                                                                color: applyOpacity(textColor, 0.7)
-                                                                    .rgba,
+                                                                touchAction: "pan-y",
+                                                                overscrollBehavior: "contain",
+                                                                WebkitOverflowScrolling: "touch",
+                                                                maskImage:
+                                                                    "linear-gradient(to bottom, black 0%, black calc(100% - 36px), transparent 100%)",
+                                                                WebkitMaskImage:
+                                                                    "linear-gradient(to bottom, black 0%, black calc(100% - 36px), transparent 100%)",
                                                             }}
                                                         >
-                                                            라이브러리 권한이 필요합니다.
-                                                            <br />
-                                                            설정에서 Spotify 재로그인해 주세요.
-                                                        </div>
-                                                    ) : (
-                                                        filteredLibraryItems.map((item) => (
-                                                            <div
-                                                                key={`${item.type}-${item.id}`}
-                                                                role="button"
-                                                                onClick={() => {
-                                                                    if (
-                                                                        hasDraggedPlaylistRef.current
-                                                                    )
-                                                                        return
-                                                                    void handlePlayLibrary(item)
-                                                                }}
-                                                                className="flex items-center gap-3.5 p-2 rounded-2xl hover:bg-black/10 transition-colors cursor-pointer select-none"
-                                                            >
-                                                                {item.type === "liked" ? (
-                                                                    <div className="w-12 h-12 rounded-xl shrink-0 bg-gradient-to-br from-[#450af5] to-[#c4efd9] flex items-center justify-center shadow">
-                                                                        <FaHeart className="w-5 h-5 text-white" />
-                                                                    </div>
-                                                                ) : (
-                                                                    <div
-                                                                        className={`w-12 h-12 overflow-hidden bg-white/20 shrink-0 ${
-                                                                            item.type === "artist"
-                                                                                ? "rounded-full"
-                                                                                : "rounded-xl"
-                                                                        }`}
-                                                                    >
-                                                                        {item.imageUrl ? (
-                                                                            <img
-                                                                                src={item.imageUrl}
-                                                                                alt={item.name}
-                                                                                draggable={false}
-                                                                                className="w-full h-full object-cover"
-                                                                            />
-                                                                        ) : null}
-                                                                    </div>
-                                                                )}
-                                                                <div className="min-w-0 flex-1">
-                                                                    <div
-                                                                        className="text-sm font-semibold leading-tight truncate"
-                                                                        style={{ color: textColor }}
-                                                                    >
-                                                                        {item.name}
-                                                                    </div>
-                                                                    <div
-                                                                        className="mt-1 text-xs truncate"
-                                                                        style={{
-                                                                            color: applyOpacity(
-                                                                                textColor,
-                                                                                0.7
-                                                                            ).rgba,
-                                                                        }}
-                                                                    >
-                                                                        {item.subtitle}
-                                                                    </div>
+                                                            {libraryNeedsRelogin &&
+                                                            filteredLibraryItems.length === 0 ? (
+                                                                <div
+                                                                    className="text-xs py-10 text-center leading-relaxed"
+                                                                    style={{
+                                                                        color: applyOpacity(
+                                                                            textColor,
+                                                                            0.7
+                                                                        ).rgba,
+                                                                    }}
+                                                                >
+                                                                    라이브러리 권한이 필요합니다.
+                                                                    <br />
+                                                                    설정에서 Spotify 재로그인해
+                                                                    주세요.
                                                                 </div>
-                                                            </div>
-                                                        ))
-                                                    )}
+                                                            ) : (
+                                                                filteredLibraryItems.map((item) => (
+                                                                    <div
+                                                                        key={`${item.type}-${item.id}`}
+                                                                        role="button"
+                                                                        onClick={() => {
+                                                                            if (
+                                                                                hasDraggedPlaylistRef.current
+                                                                            )
+                                                                                return
+                                                                            void handlePlayLibrary(
+                                                                                item
+                                                                            )
+                                                                        }}
+                                                                        className="flex items-center gap-3.5 p-2 rounded-2xl hover:bg-black/10 transition-colors cursor-pointer select-none"
+                                                                    >
+                                                                        {item.type === "liked" ? (
+                                                                            <div className="w-12 h-12 rounded-xl shrink-0 bg-gradient-to-br from-[#450af5] to-[#c4efd9] flex items-center justify-center shadow">
+                                                                                <FaHeart className="w-5 h-5 text-white" />
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div
+                                                                                className={`w-12 h-12 overflow-hidden bg-white/20 shrink-0 ${
+                                                                                    item.type ===
+                                                                                    "artist"
+                                                                                        ? "rounded-full"
+                                                                                        : "rounded-xl"
+                                                                                }`}
+                                                                            >
+                                                                                {item.imageUrl ? (
+                                                                                    <img
+                                                                                        src={
+                                                                                            item.imageUrl
+                                                                                        }
+                                                                                        alt={
+                                                                                            item.name
+                                                                                        }
+                                                                                        draggable={
+                                                                                            false
+                                                                                        }
+                                                                                        className="w-full h-full object-cover"
+                                                                                    />
+                                                                                ) : null}
+                                                                            </div>
+                                                                        )}
+                                                                        <div className="min-w-0 flex-1">
+                                                                            <div
+                                                                                className="text-sm font-semibold leading-tight truncate"
+                                                                                style={{
+                                                                                    color: textColor,
+                                                                                }}
+                                                                            >
+                                                                                {item.name}
+                                                                            </div>
+                                                                            <div
+                                                                                className="mt-1 text-xs truncate"
+                                                                                style={{
+                                                                                    color: applyOpacity(
+                                                                                        textColor,
+                                                                                        0.7
+                                                                                    ).rgba,
+                                                                                }}
+                                                                            >
+                                                                                {item.subtitle}
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                ))
+                                                            )}
+                                                        </motion.div>
+                                                    </AnimatePresence>
                                                 </div>
                                             </motion.div>
                                         )}

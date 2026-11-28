@@ -1,19 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { FaGoogle } from "react-icons/fa6"
-import { IoAdd, IoClose, IoLogOutOutline, IoTrashOutline } from "react-icons/io5"
+import { AnimatePresence, motion } from "framer-motion"
+import { IoClose } from "react-icons/io5"
 import {
     createGoogleEvent,
     deleteGoogleEvent,
     fetchGoogleAuthStatus,
     fetchGoogleCalendarData,
     fetchSchedule,
-    logoutGoogle,
     type GoogleAuthStatus,
     type GoogleCalendarMeta,
     type ScheduleItem,
     updateGoogleEvent,
 } from "../utils/schedule"
-import { CustomSelect } from "./CalendarWidget"
+import { GoogleEventForm, type GoogleEventFormState } from "./CalendarWidget"
+import { isLightClockAppearance, useClockAppearance } from "./Clock"
 
 function weekdayKorean(d: Date) {
     return ["일", "월", "화", "수", "목", "금", "토"][d.getDay()] + "요일"
@@ -128,26 +128,12 @@ function toTimeInputValue(d: Date) {
     return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
 }
 
-type EventFormState = {
-    mode: "create" | "edit"
-    eventId?: string
-    calendarId: string
-    title: string
-    startDate: string
-    endDate: string
-    startTime: string
-    endTime: string
-    allDay: boolean
-    location: string
-    description: string
-}
-
 export function ScheduleWidget() {
     const [now, setNow] = useState(() => new Date())
     const [items, setItems] = useState<ScheduleItem[]>(() => loadCachedSchedule())
-    const [googleAuth, setGoogleAuth] = useState<GoogleAuthStatus>(() => loadCachedGoogleAuth())
+    const [, setGoogleAuth] = useState<GoogleAuthStatus>(() => loadCachedGoogleAuth())
     const [calendars, setCalendars] = useState<GoogleCalendarMeta[]>([])
-    const [modal, setModal] = useState<EventFormState | null>(null)
+    const [modal, setModal] = useState<GoogleEventFormState | null>(null)
     const [submitting, setSubmitting] = useState(false)
 
     // OAuth 에러 쿼리 처리
@@ -213,37 +199,10 @@ export function ScheduleWidget() {
         return () => window.clearInterval(interval)
     }, [loadAll])
 
-    const handleGoogleLogout = async () => {
-        await logoutGoogle()
-        const emptyAuth: GoogleAuthStatus = { connected: false, user: null }
-        saveCachedGoogleAuth(emptyAuth)
-        setGoogleAuth(emptyAuth)
-        setCalendars([])
-        void loadAll()
-    }
-
     const writableCalendars = useMemo(
         () => calendars.filter((c) => c.accessRole === "owner" || c.accessRole === "writer"),
         [calendars]
     )
-
-    const openCreateModal = () => {
-        const defaultCal =
-            writableCalendars.find((c) => c.primary)?.id ?? writableCalendars[0]?.id ?? "primary"
-        const todayStr = toDateInputValue(now)
-        setModal({
-            mode: "create",
-            calendarId: defaultCal,
-            title: "",
-            startDate: todayStr,
-            endDate: todayStr,
-            startTime: "09:00",
-            endTime: "10:00",
-            allDay: false,
-            location: "",
-            description: "",
-        })
-    }
 
     const openEditModal = (item: ScheduleItem) => {
         if (item.source !== "google" || !item.id) return
@@ -261,6 +220,13 @@ export function ScheduleWidget() {
             allDay: Boolean(item.allDay),
             location: item.location || "",
             description: item.description || "",
+            attendees: item.attendees ?? [],
+            attendeeInput: "",
+            addGoogleMeet: false,
+            hangoutLink: item.hangoutLink,
+            recurrence: "",
+            reminderMinutes: 30,
+            editingTime: false,
         })
     }
 
@@ -269,33 +235,33 @@ export function ScheduleWidget() {
         if (!modal || !modal.title.trim()) {
             return
         }
+        const pendingAttendee = modal.attendeeInput.trim()
+        const finalAttendees =
+            pendingAttendee && pendingAttendee.includes("@")
+                ? Array.from(new Set([...modal.attendees, pendingAttendee]))
+                : modal.attendees
+
         setSubmitting(true)
         try {
+            const payload = {
+                calendarId: modal.calendarId,
+                title: modal.title.trim(),
+                startDate: modal.startDate,
+                endDate: modal.endDate,
+                startTime: modal.startTime,
+                endTime: modal.endTime,
+                allDay: modal.allDay,
+                location: modal.location.trim() || undefined,
+                description: modal.description.trim() || undefined,
+                attendees: finalAttendees.length > 0 ? finalAttendees : undefined,
+                addGoogleMeet: modal.addGoogleMeet || undefined,
+                recurrence: modal.recurrence || undefined,
+                reminderMinutes: modal.reminderMinutes,
+            }
             if (modal.mode === "create") {
-                await createGoogleEvent({
-                    calendarId: modal.calendarId,
-                    title: modal.title.trim(),
-                    startDate: modal.startDate,
-                    endDate: modal.endDate,
-                    startTime: modal.startTime,
-                    endTime: modal.endTime,
-                    allDay: modal.allDay,
-                    location: modal.location.trim() || undefined,
-                    description: modal.description.trim() || undefined,
-                })
+                await createGoogleEvent(payload)
             } else if (modal.eventId) {
-                await updateGoogleEvent({
-                    calendarId: modal.calendarId,
-                    eventId: modal.eventId,
-                    title: modal.title.trim(),
-                    startDate: modal.startDate,
-                    endDate: modal.endDate,
-                    startTime: modal.startTime,
-                    endTime: modal.endTime,
-                    allDay: modal.allDay,
-                    location: modal.location.trim() || undefined,
-                    description: modal.description.trim() || undefined,
-                })
+                await updateGoogleEvent({ ...payload, eventId: modal.eventId })
             }
             setModal(null)
             await loadAll()
@@ -335,26 +301,45 @@ export function ScheduleWidget() {
 
     const year = now.getFullYear()
     const month = pad2(now.getMonth() + 1)
+    const isLight = isLightClockAppearance(useClockAppearance())
 
     return (
-        <div className="w-full h-full bg-gradient-to-br from-[#232834] via-[#1c202b] to-[#141720] overflow-hidden relative">
+        <div className="w-full h-full bg-transparent overflow-hidden relative">
             <div className="relative h-full w-full max-w-[1440px] mx-auto px-6 sm:px-14 lg:px-20 py-14 sm:py-16 flex flex-col lg:flex-row gap-8 lg:gap-16">
                 {/* 좌측 날짜 헤더 */}
                 <div className="lg:w-[32%] shrink-0 flex flex-row lg:flex-col items-baseline lg:items-start justify-between lg:justify-center gap-3">
                     <div>
-                        <div className="text-white/45 text-[clamp(1rem,1.6vw,1.35rem)] font-semibold tracking-tight">
+                        <div
+                            className={`text-[clamp(1rem,1.6vw,1.35rem)] font-semibold tracking-tight ${
+                                isLight ? "text-zinc-500" : "text-white/45"
+                            }`}
+                        >
                             {year}. {month}
                         </div>
                         <div className="flex items-baseline gap-3 lg:block">
-                            <div className="text-white text-[clamp(3.25rem,8vw,7rem)] font-black leading-none tracking-tight">
+                            <div
+                                className={`text-[clamp(3.25rem,8vw,7rem)] font-black leading-none tracking-tight ${
+                                    isLight ? "text-zinc-900" : "text-white"
+                                }`}
+                            >
                                 {day}
                             </div>
-                            <div className="text-white/90 text-[clamp(1.5rem,2.8vw,2.5rem)] font-bold lg:mt-2">
+                            <div
+                                className={`text-[clamp(1.5rem,2.8vw,2.5rem)] font-bold lg:mt-2 ${
+                                    isLight ? "text-zinc-800" : "text-white/90"
+                                }`}
+                            >
                                 {weekday}
                             </div>
                         </div>
                     </div>
-                    <div className="inline-flex items-center px-3.5 py-1.5 rounded-xl bg-white/[0.08] ring-1 ring-white/10 text-xs sm:text-sm font-medium text-white/75 lg:mt-6">
+                    <div
+                        className={`inline-flex items-center px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-medium lg:mt-6 ${
+                            isLight
+                                ? "bg-black/[0.06] ring-1 ring-black/10 text-zinc-700"
+                                : "bg-white/[0.08] ring-1 ring-white/10 text-white/75"
+                        }`}
+                    >
                         오늘 일정 {upcoming.length}건
                     </div>
                 </div>
@@ -369,9 +354,19 @@ export function ScheduleWidget() {
                     }}
                 >
                     {upcoming.length === 0 ? (
-                        <div className="w-full rounded-3xl bg-white/[0.04] ring-1 ring-white/10 py-16 px-8 text-center">
-                            <div className="text-white/60 text-lg sm:text-2xl font-semibold">
-                                오늘 예정된 일정이 없습니다
+                        <div
+                            className={`w-full rounded-3xl py-16 px-8 text-center backdrop-blur-md ${
+                                isLight
+                                    ? "bg-white/55 ring-1 ring-black/8 shadow-[0_12px_40px_rgba(0,0,0,0.06)]"
+                                    : "bg-white/[0.04] ring-1 ring-white/10"
+                            }`}
+                        >
+                            <div
+                                className={`text-lg sm:text-2xl font-semibold ${
+                                    isLight ? "text-black/55" : "text-white/60"
+                                }`}
+                            >
+                                오늘 예정된 일정이 없어요. 좋은 하루 보내세요!
                             </div>
                         </div>
                     ) : (
@@ -382,9 +377,15 @@ export function ScheduleWidget() {
                                     <div
                                         key={`${e.id ?? e.start}-${idx}`}
                                         onClick={() => editable && openEditModal(e)}
-                                        className={`flex items-center justify-between gap-4 sm:gap-6 rounded-2xl sm:rounded-3xl bg-white/[0.06] ring-1 ring-white/10 px-5 sm:px-7 py-4 sm:py-5 ${
+                                        className={`flex items-center justify-between gap-4 sm:gap-6 rounded-2xl sm:rounded-3xl px-5 sm:px-7 py-4 sm:py-5 backdrop-blur-md ${
+                                            isLight
+                                                ? "bg-white/55 ring-1 ring-black/8 shadow-[0_8px_28px_rgba(0,0,0,0.05)]"
+                                                : "bg-white/[0.06] ring-1 ring-white/10"
+                                        } ${
                                             editable
-                                                ? "cursor-pointer hover:bg-white/[0.1] transition"
+                                                ? isLight
+                                                    ? "cursor-pointer hover:bg-white/75 transition"
+                                                    : "cursor-pointer hover:bg-white/[0.1] transition"
                                                 : ""
                                         }`}
                                     >
@@ -396,18 +397,32 @@ export function ScheduleWidget() {
                                                 }}
                                             />
                                             <div className="min-w-0">
-                                                <div className="text-white text-[clamp(1.1rem,2vw,1.75rem)] font-bold leading-snug truncate">
+                                                <div
+                                                    className={`text-[clamp(1.1rem,2vw,1.75rem)] font-bold leading-snug truncate ${
+                                                        isLight ? "text-zinc-900" : "text-white"
+                                                    }`}
+                                                >
                                                     {e.title}
                                                 </div>
                                                 {e.location ? (
-                                                    <div className="text-white/45 text-xs sm:text-sm truncate mt-0.5">
+                                                    <div
+                                                        className={`text-xs sm:text-sm truncate mt-0.5 ${
+                                                            isLight
+                                                                ? "text-zinc-400"
+                                                                : "text-white/45"
+                                                        }`}
+                                                    >
                                                         {e.location}
                                                     </div>
                                                 ) : null}
                                             </div>
                                         </div>
 
-                                        <div className="text-white/55 text-[clamp(0.85rem,1.2vw,1.1rem)] font-semibold whitespace-nowrap">
+                                        <div
+                                            className={`text-[clamp(0.85rem,1.2vw,1.1rem)] font-semibold whitespace-nowrap ${
+                                                isLight ? "text-zinc-500" : "text-white/55"
+                                            }`}
+                                        >
                                             {eventTimeText(e)}
                                         </div>
                                     </div>
@@ -418,166 +433,76 @@ export function ScheduleWidget() {
                 </div>
             </div>
 
-            {modal ? (
-                <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm p-4"
-                    data-disable-widget-swipe="true"
-                    onClick={() => !submitting && setModal(null)}
-                >
-                    <form
-                        onSubmit={handleSaveModal}
-                        onClick={(ev) => ev.stopPropagation()}
-                        className="w-full max-w-md rounded-3xl bg-[#1e222d] ring-1 ring-white/15 p-6 text-white space-y-4 shadow-2xl"
-                    >
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-lg font-bold">
-                                {modal.mode === "create" ? "새 Google 일정" : "일정 수정"}
-                            </h3>
-                            <button
-                                type="button"
-                                onClick={() => setModal(null)}
-                                className="p-1.5 rounded-full hover:bg-white/10 text-white/60 cursor-pointer"
+            <AnimatePresence>
+                {modal ? (
+                    <>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.18 }}
+                            onClick={() => !submitting && setModal(null)}
+                            data-disable-widget-swipe="true"
+                            className={`absolute inset-0 z-30 backdrop-blur-[2px] ${
+                                isLight ? "bg-black/15" : "bg-black/25"
+                            }`}
+                        />
+                        <motion.aside
+                            initial={{ x: "100%" }}
+                            animate={{ x: 0 }}
+                            exit={{ x: "100%" }}
+                            transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                            data-disable-widget-swipe="true"
+                            className={`absolute top-0 right-0 bottom-0 z-40 w-[340px] max-w-[90%] shadow-2xl flex flex-col p-5 backdrop-blur-2xl ${
+                                isLight
+                                    ? "bg-white/55 border-l border-black/10 text-zinc-900"
+                                    : "bg-black/30 border-l border-white/15 text-white"
+                            }`}
+                        >
+                            <div
+                                className={`flex items-center justify-between pb-3 border-b shrink-0 ${
+                                    isLight ? "border-black/10" : "border-white/10"
+                                }`}
                             >
-                                <IoClose className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        <div className="space-y-3 text-sm">
-                            {modal.mode === "create" && writableCalendars.length > 1 ? (
-                                <CustomSelect
-                                    value={modal.calendarId}
-                                    options={writableCalendars.map((c) => ({
-                                        value: c.id,
-                                        label: c.summary,
-                                        dotColor: c.backgroundColor || "#6E8BFF",
-                                    }))}
-                                    onChange={(val) => setModal({ ...modal, calendarId: val })}
-                                />
-                            ) : null}
-
-                            <input
-                                type="text"
-                                placeholder="일정 제목"
-                                value={modal.title}
-                                onChange={(ev) => setModal({ ...modal, title: ev.target.value })}
-                                className="w-full rounded-xl bg-white/[0.07] ring-1 ring-white/15 px-3.5 py-2.5 text-white placeholder-white/40 outline-none focus:ring-[#6E8BFF]"
-                                autoFocus
-                            />
-
-                            <label className="flex items-center gap-2 text-white/80 cursor-pointer select-none">
-                                <input
-                                    type="checkbox"
-                                    checked={modal.allDay}
-                                    onChange={(ev) =>
-                                        setModal({ ...modal, allDay: ev.target.checked })
-                                    }
-                                    className="rounded accent-[#6E8BFF]"
-                                />
-                                하루 종일
-                            </label>
-
-                            <div className="grid grid-cols-2 gap-2.5">
-                                <input
-                                    type="date"
-                                    value={modal.startDate}
-                                    onChange={(ev) =>
-                                        setModal({
-                                            ...modal,
-                                            startDate: ev.target.value,
-                                            endDate:
-                                                modal.endDate < ev.target.value
-                                                    ? ev.target.value
-                                                    : modal.endDate,
-                                        })
-                                    }
-                                    className="rounded-xl bg-white/[0.07] ring-1 ring-white/15 px-3 py-2 text-white outline-none"
-                                />
-                                <input
-                                    type="date"
-                                    value={modal.endDate}
-                                    onChange={(ev) =>
-                                        setModal({ ...modal, endDate: ev.target.value })
-                                    }
-                                    className="rounded-xl bg-white/[0.07] ring-1 ring-white/15 px-3 py-2 text-white outline-none"
-                                />
-                            </div>
-
-                            {!modal.allDay ? (
-                                <div className="grid grid-cols-2 gap-2.5">
-                                    <input
-                                        type="time"
-                                        value={modal.startTime}
-                                        onChange={(ev) =>
-                                            setModal({ ...modal, startTime: ev.target.value })
-                                        }
-                                        className="rounded-xl bg-white/[0.07] ring-1 ring-white/15 px-3 py-2 text-white outline-none"
-                                    />
-                                    <input
-                                        type="time"
-                                        value={modal.endTime}
-                                        onChange={(ev) =>
-                                            setModal({ ...modal, endTime: ev.target.value })
-                                        }
-                                        className="rounded-xl bg-white/[0.07] ring-1 ring-white/15 px-3 py-2 text-white outline-none"
-                                    />
+                                <div>
+                                    <div className="text-sm font-bold">
+                                        {modal.mode === "create" ? "새 일정" : "일정 수정"}
+                                    </div>
+                                    <div
+                                        className={`text-xs ${
+                                            isLight ? "text-zinc-500" : "text-white/45"
+                                        }`}
+                                    >
+                                        {modal.startDate}
+                                    </div>
                                 </div>
-                            ) : null}
-
-                            <input
-                                type="text"
-                                placeholder="장소 (선택)"
-                                value={modal.location}
-                                onChange={(ev) => setModal({ ...modal, location: ev.target.value })}
-                                className="w-full rounded-xl bg-white/[0.07] ring-1 ring-white/15 px-3.5 py-2 text-white placeholder-white/40 outline-none"
-                            />
-
-                            <textarea
-                                placeholder="메모 (선택)"
-                                rows={2}
-                                value={modal.description}
-                                onChange={(ev) =>
-                                    setModal({ ...modal, description: ev.target.value })
-                                }
-                                className="w-full rounded-xl bg-white/[0.07] ring-1 ring-white/15 px-3.5 py-2 text-white placeholder-white/40 outline-none resize-none"
-                            />
-                        </div>
-
-                        <div className="flex items-center justify-between pt-2">
-                            {modal.mode === "edit" ? (
                                 <button
                                     type="button"
-                                    onClick={handleDeleteModal}
-                                    disabled={submitting}
-                                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 text-sm font-semibold transition cursor-pointer disabled:opacity-50"
+                                    onClick={() => !submitting && setModal(null)}
+                                    className={`p-1.5 rounded-lg cursor-pointer ${
+                                        isLight
+                                            ? "hover:bg-black/5 text-zinc-500"
+                                            : "hover:bg-white/10 text-white/60"
+                                    }`}
                                 >
-                                    <IoTrashOutline className="w-4 h-4" />
-                                    삭제
-                                </button>
-                            ) : (
-                                <div />
-                            )}
-
-                            <div className="flex items-center gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setModal(null)}
-                                    disabled={submitting}
-                                    className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-sm font-medium cursor-pointer"
-                                >
-                                    취소
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={submitting}
-                                    className="px-4 py-2 rounded-xl bg-[#6E8BFF] hover:bg-[#5b79f5] text-white text-sm font-semibold transition cursor-pointer disabled:opacity-50"
-                                >
-                                    {submitting ? "저장 중..." : "저장"}
+                                    <IoClose className="w-4 h-4" />
                                 </button>
                             </div>
-                        </div>
-                    </form>
-                </div>
-            ) : null}
+
+                            <GoogleEventForm
+                                form={modal}
+                                setForm={setModal}
+                                calendars={calendars}
+                                writableCalendars={writableCalendars}
+                                submitting={submitting}
+                                onSubmit={handleSaveModal}
+                                onDelete={handleDeleteModal}
+                                isLight={isLight}
+                            />
+                        </motion.aside>
+                    </>
+                ) : null}
+            </AnimatePresence>
         </div>
     )
 }

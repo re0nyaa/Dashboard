@@ -139,6 +139,88 @@ export async function loader({ request }: { request: Request }) {
     }
 
     const url = new URL(request.url)
+    const searchQuery = url.searchParams.get("search")?.trim()
+    if (searchQuery) {
+        try {
+            const nomRes = await fetchWithTimeout(
+                `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=jsonv2&addressdetails=1&accept-language=ko&limit=6`,
+                {
+                    headers: {
+                        "User-Agent": "DashboardApp/1.0",
+                    },
+                },
+                3500
+            )
+            if (nomRes.ok) {
+                const list = (await nomRes.json()) as Array<{
+                    lat?: string
+                    lon?: string
+                    display_name?: string
+                    address?: Record<string, string>
+                }>
+                const mapped = (Array.isArray(list) ? list : [])
+                    .map((item) => {
+                        const latNum = Number(item.lat)
+                        const lonNum = Number(item.lon)
+                        if (!Number.isFinite(latNum) || !Number.isFinite(lonNum)) return null
+                        const addr = item.address ?? {}
+                        const parts = [
+                            addr.province || addr.state,
+                            addr.city || addr.county || addr.town,
+                            addr.borough || addr.district || addr.suburb,
+                            addr.quarter || addr.neighbourhood || addr.village,
+                        ]
+                            .map((s) => (s ?? "").trim())
+                            .filter(Boolean)
+                        const deduped = Array.from(new Set(parts))
+                        const name =
+                            deduped.length > 0
+                                ? deduped.join(" ")
+                                : (item.display_name ?? searchQuery)
+                                      .split(",")
+                                      .slice(0, 3)
+                                      .reverse()
+                                      .map((s) => s.trim())
+                                      .join(" ")
+                        return { name, lat: latNum, lon: lonNum }
+                    })
+                    .filter((x): x is { name: string; lat: number; lon: number } => Boolean(x))
+                if (mapped.length > 0) {
+                    return Response.json(mapped, { headers: { "cache-control": "no-store" } })
+                }
+            }
+        } catch {
+            // fallback to OpenWeather geocoding
+        }
+
+        try {
+            const geoRes = await fetchWithTimeout(
+                `${OPENWEATHER_GEO_BASE}/direct?q=${encodeURIComponent(searchQuery)}&limit=5&appid=${apiKey}`,
+                undefined,
+                3000
+            )
+            if (!geoRes.ok) return Response.json([])
+            const list = (await geoRes.json()) as Array<
+                OpenWeatherReverseGeoItem & { lat?: number; lon?: number }
+            >
+            const mapped = (Array.isArray(list) ? list : [])
+                .filter((x) => typeof x.lat === "number" && typeof x.lon === "number")
+                .map((x) => {
+                    const place = formatLocationFromOpenWeatherGeo(x) || x.name || searchQuery
+                    const label =
+                        x.country && !place.includes(x.country) ? `${place}, ${x.country}` : place
+                    return {
+                        name: label,
+                        lat: x.lat as number,
+                        lon: x.lon as number,
+                    }
+                })
+            return Response.json(mapped, { headers: { "cache-control": "no-store" } })
+        } catch {
+            return Response.json([])
+        }
+    }
+
     const latParam = toFiniteNumber(url.searchParams.get("lat"))
     const lonParam = toFiniteNumber(url.searchParams.get("lon"))
 
